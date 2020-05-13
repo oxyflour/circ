@@ -24,6 +24,23 @@ export class LinkData extends Base {
         Object.assign(link, json)
         return link
     }
+    static fromPath(path: { dir: 'x' | 'y', x: number, y: number }[],
+            from = null as any, to = null as any) {
+        const link = new LinkData(),
+            [begin, end] = [path[0], path[path.length - 1]]
+        link.dir = begin.dir
+        link.from.x = begin.x
+        link.from.y = begin.y
+        Object.assign(link.from, from)
+        for (const i of range(path.length - 2)) {
+            const { dir } = path[i]
+            link.breaks.push(path[i + 1][dir])
+        }
+        link.to.x = end.x
+        link.to.y = end.y
+        Object.assign(link.to, to)
+        return link
+    }
     getPath() {
         const { from, to, breaks } = this,
             path = [{ dir: this.dir, x: from.x, y: from.y }]
@@ -110,6 +127,10 @@ export class BlockData extends Base {
         Object.assign(block, { id, type, pos })
         return block
     }
+    static hoverOn = {
+        block: '',
+        pin: -1,
+    }
     private static getShape = memo((type: string) => {
         const [, portNum] = type.match(/.*\.s(\d+)p/) || ['', '']
         if (portNum) {
@@ -181,8 +202,7 @@ export default function Circuit(props: {
     const { width, height } = props,
         [blocks, setBlocks] = React.useState([] as BlockData[]),
         [links, setLinks] = React.useState([] as LinkData[]),
-        [selected, setSelected] = React.useState({ } as { [id: string]: boolean }),
-        [hoverPin, setHoverPin] = React.useState({ block: '', pin: -1 })
+        [selected, setSelected] = React.useState({ } as { [id: string]: boolean })
     function getSvgBase(elem: SVGElement) {
         const svg = elem.closest('svg'),
             { left, top } = svg ? svg.getBoundingClientRect() : { left: 0, top: 0 }
@@ -204,12 +224,11 @@ export default function Circuit(props: {
             link = new LinkData()
         Object.assign(link.from, { block: block.id, pin: pin, x: 0, y: 0 })
         withMouseDown(evt => {
-            const pos = Vec2.from(evt.clientX, evt.clientY).sub(base)
-            if (hoverPin.block && hoverPin.pin >= 0 &&
-                    !(hoverPin.block === block.id && hoverPin.pin === pin) &&
-                    blocks.find(block => block.id === hoverPin.block && block.pins.length < hoverPin.pin)) {
-                link.to.block = hoverPin.block
-                link.to.pin = hoverPin.pin
+            const pos = Vec2.from(evt.clientX, evt.clientY).sub(base),
+                { hoverOn } = BlockData
+            if (hoverOn.block && hoverOn.pin >= 0 && !(hoverOn.block === block.id && hoverOn.pin === pin)) {
+                link.to.block = hoverOn.block
+                link.to.pin = hoverOn.pin
             } else {
                 link.to.x = pos.x
                 link.to.y = pos.y
@@ -219,27 +238,29 @@ export default function Circuit(props: {
         })
     }
     function onMouseEnterBlockPin(evt: React.MouseEvent, block: BlockData, pin: number) {
-        setHoverPin({ block: block.id, pin })
+        Object.assign(BlockData.hoverOn, { block: block.id, pin })
     }
     function onMouseLeaveBlockPin(evt: React.MouseEvent, block: BlockData, pin: number) {
-        setHoverPin({ block: '', pin: -1 })
+        Object.assign(BlockData.hoverOn, { block: '', pin: -1 })
     }
     function onMouseDownOnLink(evt: React.MouseEvent, link: LinkData, idx: number) {
-        const path = link.getPath(),
-            node = path[idx + 1],
-            last = path[path.length - 1],
-            created = LinkData.fromJSON(link.toJSON())
+        const path = link.getPath()
         if (idx === 0) {
-            created.dir = node.dir
-            created.breaks.splice(0, 0, node[node.dir])
+            const first = path[0]
+            path.unshift({ dir: path[1].dir, x: first.x, y: first.y })
             idx += 1
         } else if (idx === path.length - 2) {
-            created.breaks.push(last[node.dir])
+            const last = path[path.length - 1]
+            path.push({ dir: path[idx].dir, x: last.x, y: last.y })
         }
         const base = getSvgBase(evt.target as SVGCircleElement)
         withMouseDown(evt => {
-            const pos = Vec2.from(evt.clientX, evt.clientY).sub(base)
-            created.breaks[idx - 1] = pos[node.dir]
+            const pos = Vec2.from(evt.clientX, evt.clientY).sub(base),
+                { dir } = path[idx + 1]
+            path[idx][dir] = pos[dir]
+            path[idx + 1][dir] = pos[dir]
+            const created = LinkData.fromPath(path, link.from, link.to)
+            created.id = link.id
             setLinks(links.map(item => item.id === created.id ? created : item))
         }, evt => {
         })
