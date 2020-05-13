@@ -166,9 +166,6 @@ function Block(props: {
     data: BlockData
     selected: boolean
     onMouseDownOnBlock: (evt: React.MouseEvent, block: BlockData) => void
-    onMouseDownOnPin: (evt: React.MouseEvent, block: BlockData, pin: number) => void
-    onMouseEnterPin: (evt: React.MouseEvent, block: BlockData, pin: number) => void
-    onMouseLeavePin: (evt: React.MouseEvent, block: BlockData, pin: number) => void
 }) {
     const { selected, data: { pos, width, height, pins } } = props,
         color = selected ? 'blue' : 'gray'
@@ -179,14 +176,25 @@ function Block(props: {
         { pins.map(({ pos }, pin) => <circle key={ 'c' + pin }
             cx={ pos.x } cy={ pos.y } r={ 5 }
             stroke="none" fill="white" />) }
+        <rect x={ -width/2 } y={ -height/2 } width={ width } height={ height }
+            onMouseDown={ evt => props.onMouseDownOnBlock(evt, props.data) }
+            stroke={ color } fill="white" />
+    </g>
+}
+
+function BlockPins(props: {
+    data: BlockData
+    onMouseDownOnPin: (evt: React.MouseEvent, block: BlockData, pin: number) => void
+    onMouseEnterPin: (evt: React.MouseEvent, block: BlockData, pin: number) => void
+    onMouseLeavePin: (evt: React.MouseEvent, block: BlockData, pin: number) => void
+}) {
+    const { pos, pins } = props.data
+    return <g transform={ `translate(${pos.x}, ${pos.y})` }>
         { pins.map(({ pos }, pin) => <circle key={ 'd' + pin } cx={ pos.x } cy={ pos.y } r={ 5 }
             onMouseDown={ evt => props.onMouseDownOnPin(evt, props.data, pin) }
             onMouseEnter={ evt => props.onMouseEnterPin(evt, props.data, pin) }
             onMouseLeave={ evt => props.onMouseLeavePin(evt, props.data, pin) }
             stroke="gray" fill="transparent" />) }
-        <rect x={ -width/2 } y={ -height/2 } width={ width } height={ height }
-            onMouseDown={ evt => props.onMouseDownOnBlock(evt, props.data) }
-            stroke={ color } fill="white" />
     </g>
 }
 
@@ -293,13 +301,14 @@ export default function Circuit(props: {
     return <svg width={ width } height={ height }>
         { blocks.map(block => <Block key={ block.id } data={ block }
             selected={ selected[block.id] }
-            onMouseDownOnBlock={ onMouseDownOnBlock }
-            onMouseDownOnPin={ onMouseDownOnBlockPin }
-            onMouseEnterPin={ onMouseEnterBlockPin }
-            onMouseLeavePin={ onMouseLeaveBlockPin } />) }
+            onMouseDownOnBlock={ onMouseDownOnBlock } />) }
         { links.map(link => <Link key={ link.id } data={ link } blocks={ blocks }
             onMouseDownOnLink={ onMouseDownOnLink }
             onMouseDownOnPin={ onMouseDownOnLinkPin }
             selected={ selected[link.id] } />) }
+        { blocks.map(block => <BlockPins key={ 'p' + block.id } data={ block }
+            onMouseDownOnPin={ onMouseDownOnBlockPin }
+            onMouseEnterPin={ onMouseEnterBlockPin }
+            onMouseLeavePin={ onMouseLeaveBlockPin } />) }
     </svg>
 }
