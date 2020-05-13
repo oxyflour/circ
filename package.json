@@ -9,7 +9,7 @@
   "scripts": {
     "dev:watch": "parcel index.html",
     "dev:serve": "tsc-watch --onSuccess \"kykm start dist/api\"",
-    "dev:proxy": "grpcwebproxy --backend_addr=localhost:5000 --run_tls_server=false --allow_all_origins",
+    "dev:proxy": "grpcwebproxy --backend_addr=localhost:5000 --server_http_max_read_timeout=600s --server_http_max_write_timeout=600s --run_tls_server=false --allow_all_origins",
     "dev": "concurrently npm:dev:*",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

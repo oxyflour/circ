@@ -205,9 +205,6 @@ export default function Circuit(props: {
         Object.assign(link.from, { block: block.id, pin: pin, x: 0, y: 0 })
         withMouseDown(evt => {
             const pos = Vec2.from(evt.clientX, evt.clientY).sub(base)
-            console.log(hoverPin.block && hoverPin.pin >= 0,
-                    !(hoverPin.block === block.id && hoverPin.pin === pin),
-                    blocks.find(block => block.id === hoverPin.block && block.pins.length < hoverPin.pin))
             if (hoverPin.block && hoverPin.pin >= 0 &&
                     !(hoverPin.block === block.id && hoverPin.pin === pin) &&
                     blocks.find(block => block.id === hoverPin.block && block.pins.length < hoverPin.pin)) {
@@ -223,11 +220,9 @@ export default function Circuit(props: {
     }
     function onMouseEnterBlockPin(evt: React.MouseEvent, block: BlockData, pin: number) {
         setHoverPin({ block: block.id, pin })
-        console.log('enter')
     }
     function onMouseLeaveBlockPin(evt: React.MouseEvent, block: BlockData, pin: number) {
         setHoverPin({ block: '', pin: -1 })
-        console.log('leave')
     }
     function onMouseDownOnLink(evt: React.MouseEvent, link: LinkData, idx: number) {
         const path = link.getPath(),
