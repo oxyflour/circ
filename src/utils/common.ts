@@ -23,6 +23,10 @@ export function debounce<F extends Function>(fn: F, delay: number) {
     }) as any as F
 }
 
+export function lerp(a: number, b: number, f: number) {
+    return a * (1 - f) + b * f
+}
+
 export function range(count: number): number[]
 export function range(start: number, end = NaN, step = 1) {
     const [a, b] = end === end ? [start, end] : [0, start],

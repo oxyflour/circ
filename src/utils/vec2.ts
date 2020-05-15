@@ -1,4 +1,4 @@
-interface IVec2 {
+export interface IVec2 {
     x: number
     y: number
 }
@@ -36,6 +36,9 @@ export class Vec2 {
         const a = Math.atan2(this.y, this.x) + angle,
             r = this.len()
         return new Vec2({ x: r * Math.cos(a), y: r * Math.sin(a), })
+    }
+    lerp(b: IVec2, f: number) {
+        return Vec2.from(b).mul(f).add(this.mul(1 - f))
     }
     set(x: number, y: number) {
         this.x = x
