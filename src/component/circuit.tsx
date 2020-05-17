@@ -100,15 +100,23 @@ export class LinkData extends Base {
 
 function Link(props: {
     data: LinkData
-    edges: LinkEdge[]
     selected: number
     onMouseDownOnPin: (evt: React.MouseEvent, link: LinkData, atKey: 'from' | 'to') => void
+    onMouseDownOnLink: (evt: React.MouseEvent, link: LinkData, idx: number) => void
 }) {
-    const { data: { from, to }, data, edges } = props
+    const { data: { id, from, to }, data } = props,
+        path = data.getPath(),
+        edges = range(path.length - 1).map(idx => ({ idx, start: path[idx], end: path[idx + 1] }))
     return <>
         { edges.map(({ idx, start, end }) => <line key={ idx }
             x1={ start.x } y1={ start.y } x2={ end.x } y2={ end.y }
             stroke={ from.block && to.block ? 'gray' : 'orange' } strokeWidth={ 2 } />) }
+        { edges.map(({ idx, start, end }) => <line key={ 'l' + idx }
+            x1={ start.x } y1={ start.y } x2={ end.x } y2={ end.y } className={ 'link-' + start.dir }
+            onMouseDown={ evt => props.onMouseDownOnLink(evt, data, idx) }
+            onMouseOver={ () => LinkData.hoverOn[id] = idx }
+            onMouseOut={ () => delete LinkData.hoverOn[id] }
+            stroke="transparent" strokeWidth={ 6 } />) }
         <circle
             cx={ from.x } cy={ from.y } r={ 4 } className="link-pin"
             onMouseDown={ evt => props.onMouseDownOnPin(evt, data, 'from') }
@@ -117,22 +125,6 @@ function Link(props: {
             cx={ to.x } cy={ to.y } r={ 4 } className="link-pin"
             onMouseDown={ evt => props.onMouseDownOnPin(evt, data, 'to') }
             fill={ to.block ? 'gray' : 'orange' } stroke="none" />
-    </>
-}
-
-function LinkEdges(props: {
-    data: LinkData
-    edges: LinkEdge[]
-    onMouseDownOnLink: (evt: React.MouseEvent, link: LinkData, idx: number) => void
-}) {
-    const { data: { id }, edges, data } = props
-    return <>
-        { edges.map(({ idx, start, end }) => <line key={ 'l' + idx }
-            x1={ start.x } y1={ start.y } x2={ end.x } y2={ end.y } className={ 'link-' + start.dir }
-            onMouseDown={ evt => props.onMouseDownOnLink(evt, data, idx) }
-            onMouseOver={ () => LinkData.hoverOn[id] = idx }
-            onMouseOut={ () => delete LinkData.hoverOn[id] }
-            stroke="transparent" strokeWidth={ 6 } />) }
     </>
 }
 
@@ -234,6 +226,17 @@ export default function Circuit(props: {
         [blocks, setBlocks] = React.useState([] as BlockData[]),
         [links, setLinks] = React.useState([] as LinkData[]),
         [selected, setSelected] = React.useState({ } as { [id: string]: number })
+
+    const blockMap = { } as { [id: string]: BlockData }
+    for (const block of blocks) {
+        blockMap[block.id] = block
+    }
+    const linkMap = { } as { [id: string]: LinkData }
+    for (const link of links) {
+        linkMap[link.id] = link
+        link.updatePos(blockMap)
+    }
+
     function getSvgBase(elem: SVGElement) {
         const svg = elem.closest('svg'),
             { left, top } = svg ? svg.getBoundingClientRect() : { left: 0, top: 0 }
@@ -242,7 +245,7 @@ export default function Circuit(props: {
     function getHoverLink(pos: Vec2) {
         const entries = Object.entries(LinkData.hoverOn),
             [id, idx] = entries[entries.length - 1] || ['', -1],
-            link = id ? links.find(item => item.id === id) : undefined,
+            link = linkMap[id],
             path = link && link.getPath() || [],
             at = Vec2.from(pos)
         if (path[idx]) {
@@ -250,9 +253,6 @@ export default function Circuit(props: {
             at[dir] = path[idx][dir]
         }
         return { link, idx, at }
-    }
-    function setLinksAndBlocks(links: LinkData[], blocks: BlockData[]) {
-        // TODO
     }
 
     function onMouseDownOnBlock(evt: React.MouseEvent, block: BlockData) {
@@ -349,29 +349,15 @@ export default function Circuit(props: {
         block.pos = Vec2.from(width / 2, height / 2)
         setBlocks(blocks.concat(block))
     }
-
-    const blockMap = { } as { [id: string]: BlockData }
-    for (const block of blocks) {
-        blockMap[block.id] = block
-    }
-    const linkEdges = [] as { link: LinkData, edges: LinkEdge[] }[]
-    for (const link of links) {
-        link.updatePos(blockMap)
-        const path = link.getPath(),
-            edges = range(path.length - 1).map(idx => ({ idx, start: path[idx], end: path[idx + 1] }))
-        linkEdges.push({ link, edges })
-    }
     return <svg width={ width } height={ height }>
         { blocks.map(block => <Block key={ block.id } data={ block }
             selected={ selected[block.id] }
             onMouseDownOnBlock={ onMouseDownOnBlock } />) }
-        { linkEdges.map(({ link, edges }) => <Link key={ link.id } data={ link } edges={ edges }
+        { links.map(link => <Link key={ link.id } data={ link }
             onMouseDownOnPin={ onMouseDownOnLinkPin }
+            onMouseDownOnLink={ onMouseDownOnLink }
             selected={ selected[link.id] } />) }
         { blocks.map(block => <BlockPins key={ 'p' + block.id } data={ block }
             onMouseDownOnPin={ onMouseDownOnBlockPin } />) }
-        { linkEdges.map(({ link, edges }) => selected[link.id] !== -1 && <LinkEdges key={ 'l' + link.id }
-            data={ link } edges={ edges }
-            onMouseDownOnLink={ onMouseDownOnLink } />) }
     </svg>
 }
