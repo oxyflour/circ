@@ -19,10 +19,12 @@
   "dependencies": {
     "@types/react": "^16.9.34",
     "@types/react-dom": "^16.9.7",
+    "@types/react-router-dom": "^5.1.5",
     "antd": "^4.2.0",
-    "kyoko-mesh": "^0.4.20",
+    "kyoko-mesh": "^0.4.22",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
+    "react-router-dom": "^5.2.0",
     "typescript": "^3.8.3"
   },
   "devDependencies": {

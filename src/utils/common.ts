@@ -36,3 +36,7 @@ export function range(start: number, end = NaN, step = 1) {
     }
     return ret
 }
+
+export function sleep(time: number) {
+    return new Promise(resolve => setTimeout(resolve, time))
+}

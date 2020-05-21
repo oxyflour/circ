@@ -192,7 +192,7 @@ function Block(props: {
             stroke="gray" />) }
         { pins.map(({ pos }, pin) => <circle key={ 'c' + pin }
             cx={ pos.x } cy={ pos.y } r={ 5 }
-            stroke="none" fill="white" />) }
+            stroke="gray" fill="white" />) }
         <rect x={ -width/2 } y={ -height/2 } width={ width } height={ height }
             onMouseDown={ evt => props.onMouseDownOnBlock(evt, props.data) }
             stroke={ color } fill="white" />
@@ -209,7 +209,7 @@ function BlockPins(props: {
             onMouseDown={ evt => props.onMouseDownOnPin(evt, props.data, pin) }
             onMouseOver={ () => BlockData.hoverOn[id] = pin }
             onMouseOut={ () => delete BlockData.hoverOn[id] }
-            stroke="gray" fill="transparent" />) }
+            fill="transparent" />) }
     </g>
 }
 
