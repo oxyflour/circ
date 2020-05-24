@@ -19,17 +19,18 @@ export interface LinkEdge {
 
 function mergePath(path: LinkPath[], tol: number) {
     const ret = [path[0]] as LinkPath[]
-    for (let i = 1; i < path.length - 2; i ++) {
-        if (Vec2.from(path[i + 1]).sub(path[i]).len() < tol) {
-            const { dir } = path[i]
-            path[i + 2][dir] = path[i][dir]
-            i += 2
+    let idx = 1
+    for (; idx < path.length - 2; idx ++) {
+        if (Vec2.from(path[idx + 1]).sub(path[idx]).len() < tol) {
+            const { dir } = path[idx]
+            path[idx + 2][dir] = path[idx][dir]
+            idx += 1
         } else {
-            ret.push(path[i])
+            ret.push(path[idx])
         }
     }
-    for (let i = path.length - 2; i < path.length; i ++) {
-        ret.push(path[i])
+    for (; idx < path.length; idx ++) {
+        ret.push(path[idx])
     }
     return ret
 }
@@ -58,7 +59,6 @@ export class LinkData extends Base {
         Object.assign(link, json)
         return link
     }
-    static hoverOn = { } as { [link: string]: number }
     static join(left: LinkData, right: LinkData) {
         return this.joinPath(left.getPath(), right.getPath(), left, right)
     }
@@ -162,7 +162,6 @@ export class BlockData extends Base {
         Object.assign(block, { id, type, rot, pos })
         return block
     }
-    static hoverOn = { } as { [block: string]: number }
     private static getShape = memo((type: string, rot: number) => {
         const [, portNum] = type.match(/.*\.s(\d+)p/) || ['', '']
         if (portNum) {

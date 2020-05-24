@@ -4,6 +4,7 @@ import { Vec2 } from '../../utils/vec2'
 import { withMouseDown } from '../../utils/dom'
 import { LinkData, BlockData, cleanupCircuit } from '../../utils/circuit'
 
+const hoverOnLink = { } as { [id: string]: number }
 function Link(props: {
     data: LinkData
     selected: boolean
@@ -20,20 +21,25 @@ function Link(props: {
         { edges.map(({ idx, start, end }) => <line key={ 'l' + idx }
             x1={ start.x } y1={ start.y } x2={ end.x } y2={ end.y } className={ 'link-' + start.dir }
             onMouseDown={ evt => props.onMouseDownOnLink(evt, data, idx) }
-            onMouseOver={ () => LinkData.hoverOn[id] = idx }
-            onMouseOut={ () => delete LinkData.hoverOn[id] }
+            onMouseOver={ () => hoverOnLink[id] = idx }
+            onMouseOut={ () => delete hoverOnLink[id] }
             stroke="transparent" strokeWidth={ 6 } />) }
         <circle
             cx={ from.x } cy={ from.y } r={ 4 } className="link-pin"
             onMouseDown={ evt => props.onMouseDownOnPin(evt, data, 'from') }
+            onMouseOver={ () => hoverOnLink[id] = 0 }
+            onMouseOut={ () => delete hoverOnLink[id] }
             fill={ from.block ? 'gray' : 'orange' } stroke="none" />
         <circle
             cx={ to.x } cy={ to.y } r={ 4 } className="link-pin"
             onMouseDown={ evt => props.onMouseDownOnPin(evt, data, 'to') }
+            onMouseOver={ () => hoverOnLink[id] = edges.length }
+            onMouseOut={ () => delete hoverOnLink[id] }
             fill={ to.block ? 'gray' : 'orange' } stroke="none" />
     </>
 }
 
+const hoverOnBlock = { } as { [id: string]: number }
 function Block(props: {
     data: BlockData
     selected: boolean
@@ -64,8 +70,8 @@ function BlockPins(props: {
     return <g transform={ `translate(${pos.x}, ${pos.y})` }>
         { type !== 'joint' && pins.map(({ pos }, pin) => <circle key={ 'd' + pin } cx={ pos.x } cy={ pos.y } r={ 6 }
             onMouseDown={ evt => props.onMouseDownOnPin(evt, props.data, pin) }
-            onMouseOver={ () => BlockData.hoverOn[id] = pin }
-            onMouseOut={ () => delete BlockData.hoverOn[id] }
+            onMouseOver={ () => hoverOnBlock[id] = pin }
+            onMouseOut={ () => delete hoverOnBlock[id] }
             fill="transparent" />) }
     </g>
 }
@@ -105,13 +111,14 @@ export default function Circuit(props: {
             throw Error('unreferenced svg')
         }
     }
-    function getHoverLink(pos: Vec2) {
-        const entries = Object.entries(LinkData.hoverOn),
-            [id, idx] = entries[entries.length - 1] || ['', -1],
+    function getHoverLink(pos: Vec2, exclude: string) {
+        const [id, idx] = Object.entries(hoverOnLink).filter(([id]) => id !== exclude).pop() || ['', -1],
             link = linkMap[id],
             path = link && link.getPath() || [],
             at = Vec2.from(pos)
-        if (path[idx]) {
+        if (idx === path.length - 1) {
+            Object.assign(at, path[idx])
+        } else if (path[idx]) {
             const dir = path[idx].dir === 'x' ? 'y' : 'x'
             at[dir] = path[idx][dir]
         }
@@ -133,35 +140,13 @@ export default function Circuit(props: {
         })
     }
     function onMouseDownOnBlockPin(evt: React.MouseEvent, block: BlockData, pin: number) {
-        const created = new LinkData()
-        Object.assign(created.from, { block: block.id, pin: pin, x: 0, y: 0 })
-        const { pos, end } = block.pins[pin]
+        const created = new LinkData(),
+            pt = posFromEvent(evt),
+            { pos, end } = block.pins[pin]
         created.dir = Math.abs(pos.sub(end).norm().x) > 0.5 ? 'x' : 'y'
-        withMouseDown(evt => {
-            const pos = posFromEvent(evt)
-            Object.assign(created.to, getHoverLink(pos).at)
-            const [block, pin] = Object.entries(BlockData.hoverOn)[0] || ['', -1]
-            Object.assign(created.to, { block, pin })
-            setLinks([created].concat(links))
-        }, evt => {
-            const pos = posFromEvent(evt),
-                { at, link, idx } = getHoverLink(pos)
-            if (link) {
-                const [left, right] = link.split(at, idx),
-                    joint = new BlockData()
-                joint.type = 'joint'
-                joint.pos = Vec2.from(left.to.x, left.to.y)
-                const ret = { block: joint.id, pin: 0 }
-                Object.assign(left.to, ret)
-                Object.assign(right.from, ret)
-                Object.assign(created.to, ret)
-                left.id = link.id
-                setBlocks(blocks.concat(joint))
-                setLinks(links
-                    .filter(item => item.id !== link.id && item.id != created.id)
-                    .concat([left, right, created]))
-            }
-        })
+        Object.assign(created.from, { block: block.id, pin, ...pt })
+        Object.assign(created.to, pt)
+        onMouseDownOnLinkPin(evt, created, 'to')
     }
     function onMouseDownOnLink(evt: React.MouseEvent, link: LinkData, idx: number) {
         const path = link.getPath(),
@@ -190,22 +175,16 @@ export default function Circuit(props: {
         })
     }
     function onMouseDownOnLinkPin(evt: React.MouseEvent, link: LinkData, atKey: 'from' | 'to') {
-        const at = link[atKey],
-            block = at.block && blocks.find(block => block.id === at.block),
-            pos = block && block.pins[at.pin]
-        if (block && pos) {
-            return onMouseDownOnBlockPin(evt, block, at.pin)
-        }
         const created = link.copy()
         withMouseDown(evt => {
             const pos = posFromEvent(evt)
-            Object.assign(created[atKey], getHoverLink(pos).at)
-            const [block, pin] = Object.entries(BlockData.hoverOn)[0] || ['', -1]
+            Object.assign(created[atKey], getHoverLink(pos, created.id).at)
+            const [block, pin] = Object.entries(hoverOnBlock).pop() || ['', -1]
             Object.assign(created[atKey], { block, pin })
             setLinks([created].concat(links.filter(item => item.id !== created.id)))
         }, evt => {
             const pos = posFromEvent(evt),
-                { at, link, idx } = getHoverLink(pos)
+                { at, link, idx } = getHoverLink(pos, created.id)
             if (link) {
                 const [left, right] = link.split(at, idx),
                     joint = new BlockData()
@@ -216,10 +195,11 @@ export default function Circuit(props: {
                 Object.assign(right.from, ret)
                 Object.assign(created[atKey], ret)
                 left.id = link.id
-                setBlocks(blocks.concat(joint))
-                setLinks(links
-                    .filter(item => item.id !== link.id && item.id != created.id)
-                    .concat([left, right, created]))
+                setBlocksAndLinks(
+                    blocks.concat(joint),
+                    links.filter(item => item.id !== link.id && item.id != created.id)
+                        .concat([left, right, created])
+                        .filter(item => (item.from.block && item.to.block) || (Vec2.from(item.from).sub(item.to).len() > 2)))
             }
         })
     }
@@ -250,15 +230,19 @@ export default function Circuit(props: {
         if (evt.which === 'R'.charCodeAt(0)) {
             setBlocks(blocks.map(block => selected[block.id] ? block.copy({ rot: block.rot + Math.PI / 2 }) : block))
         } else if (evt.which === '.'.charCodeAt(0)) {
-            const ret = cleanupCircuit(
+            setBlocksAndLinks(
                 blocks.filter(block => !selected[block.id]),
                 links.filter(link => !selected[link.id]))
-            setBlocks(ret.blocks)
-            setLinks(ret.links)
         } else if (evt.which === ' '.charCodeAt(0)) {
             setOffset(Vec2.from(0, 0))
             setScale(1)
         }
+    }
+
+    function setBlocksAndLinks(blocks: BlockData[], links: LinkData[]) {
+        const ret = cleanupCircuit(blocks, links)
+        setBlocks(ret.blocks)
+        setLinks(ret.links)
     }
 
     props.handle.current = {
@@ -273,8 +257,7 @@ export default function Circuit(props: {
                     block.pos.y = Math.max(0, Math.min(block.pos.y, height))
                 }
             }
-            setBlocks(blocks)
-            setLinks(links)
+            setBlocksAndLinks(blocks, links)
         },
         get() {
             return { links, blocks }
