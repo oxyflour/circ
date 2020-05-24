@@ -136,7 +136,7 @@ export default function Circuit(props: {
         const created = new LinkData()
         Object.assign(created.from, { block: block.id, pin: pin, x: 0, y: 0 })
         const { pos, end } = block.pins[pin]
-        created.dir = pos.sub(end).norm().x > 0.5 ? 'x' : 'y'
+        created.dir = Math.abs(pos.sub(end).norm().x) > 0.5 ? 'x' : 'y'
         withMouseDown(evt => {
             const pos = posFromEvent(evt)
             Object.assign(created.to, getHoverLink(pos).at)
@@ -291,9 +291,9 @@ export default function Circuit(props: {
                 selected={ selected[block.id] }
                 onMouseDownOnBlock={ onMouseDownOnBlock } />) }
             { links.map(link => <Link key={ link.id } data={ link }
+                selected={ selected[link.id] }
                 onMouseDownOnPin={ onMouseDownOnLinkPin }
-                onMouseDownOnLink={ onMouseDownOnLink }
-                selected={ selected[link.id] } />) }
+                onMouseDownOnLink={ onMouseDownOnLink } />) }
             { blocks.map(block => <BlockPins key={ 'p' + block.id } data={ block }
                 onMouseDownOnPin={ onMouseDownOnBlockPin } />) }
         </g>
