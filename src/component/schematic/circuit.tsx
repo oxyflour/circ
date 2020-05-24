@@ -39,8 +39,8 @@ function Block(props: {
     selected: boolean
     onMouseDownOnBlock: (evt: React.MouseEvent, block: BlockData) => void
 }) {
-    const { selected, data: { pos, rot, width, height, pins } } = props,
-        color = selected ? 'blue' : 'gray'
+    const { selected, data: { pos, rot, width, height, pins, type } } = props,
+        color = selected ? 'blue' : type === 'joint' ? 'transparent' : 'gray'
     return <g transform={ `translate(${pos.x}, ${pos.y})` }>
         { pins.map(({ pos, end }, pin) => <line key={ 'b' + pin }
             x1={ pos.x } y1={ pos.y } x2={ end.x } y2={ end.y }
@@ -60,9 +60,9 @@ function BlockPins(props: {
     data: BlockData
     onMouseDownOnPin: (evt: React.MouseEvent, block: BlockData, pin: number) => void
 }) {
-    const { id, pos, pins } = props.data
+    const { id, pos, pins, type } = props.data
     return <g transform={ `translate(${pos.x}, ${pos.y})` }>
-        { pins.map(({ pos }, pin) => <circle key={ 'd' + pin } cx={ pos.x } cy={ pos.y } r={ 6 }
+        { type !== 'joint' && pins.map(({ pos }, pin) => <circle key={ 'd' + pin } cx={ pos.x } cy={ pos.y } r={ 6 }
             onMouseDown={ evt => props.onMouseDownOnPin(evt, props.data, pin) }
             onMouseOver={ () => BlockData.hoverOn[id] = pin }
             onMouseOut={ () => delete BlockData.hoverOn[id] }
@@ -73,6 +73,7 @@ function BlockPins(props: {
 export interface CircuitHandle {
     load(data: { blocks: any[], links: any[] }): void
     get(): { blocks: BlockData[], links: LinkData[] }
+    bound(): DOMRect | null
 }
 
 export default function Circuit(props: {
@@ -141,13 +142,21 @@ export default function Circuit(props: {
             Object.assign(created.to, getHoverLink(pos).at)
             const [block, pin] = Object.entries(BlockData.hoverOn)[0] || ['', -1]
             Object.assign(created.to, { block, pin })
-            setLinks(links.concat(created))
+            setLinks([created].concat(links))
         }, evt => {
             const pos = posFromEvent(evt),
                 { at, link, idx } = getHoverLink(pos)
             if (link) {
-                const [left, right] = link.split(at, idx)
+                const [left, right] = link.split(at, idx),
+                    joint = new BlockData()
+                joint.type = 'joint'
+                joint.pos = Vec2.from(left.to.x, left.to.y)
+                const ret = { block: joint.id, pin: 0 }
+                Object.assign(left.to, ret)
+                Object.assign(right.from, ret)
+                Object.assign(created.to, ret)
                 left.id = link.id
+                setBlocks(blocks.concat(joint))
                 setLinks(links
                     .filter(item => item.id !== link.id && item.id != created.id)
                     .concat([left, right, created]))
@@ -193,13 +202,21 @@ export default function Circuit(props: {
             Object.assign(created[atKey], getHoverLink(pos).at)
             const [block, pin] = Object.entries(BlockData.hoverOn)[0] || ['', -1]
             Object.assign(created[atKey], { block, pin })
-            setLinks(links.map(item => item.id === created.id ? created : item))
+            setLinks([created].concat(links.filter(item => item.id !== created.id)))
         }, evt => {
             const pos = posFromEvent(evt),
                 { at, link, idx } = getHoverLink(pos)
             if (link) {
-                const [left, right] = link.split(at, idx)
+                const [left, right] = link.split(at, idx),
+                    joint = new BlockData()
+                joint.type = 'joint'
+                joint.pos = Vec2.from(left.to.x, left.to.y)
+                const ret = { block: joint.id, pin: 0 }
+                Object.assign(left.to, ret)
+                Object.assign(right.from, ret)
+                Object.assign(created[atKey], ret)
                 left.id = link.id
+                setBlocks(blocks.concat(joint))
                 setLinks(links
                     .filter(item => item.id !== link.id && item.id != created.id)
                     .concat([left, right, created]))
@@ -207,7 +224,8 @@ export default function Circuit(props: {
         })
     }
     function onMouseDownOnBackground(evt: React.MouseEvent) {
-        const start = posFromEvent(evt)
+        const start = posFromEvent(evt),
+            base = Vec2.from(offset.x - evt.clientX, offset.y - evt.clientY)
         if (evt.button === 0) {
             withMouseDown(evt => {
             }, evt => {
@@ -217,7 +235,7 @@ export default function Circuit(props: {
             })
         } else if (evt.button === 1) {
             withMouseDown(evt => {
-                setOffset(posFromEvent(evt).sub(start).add(offset))
+                setOffset(Vec2.from(evt.clientX, evt.clientY).add(base))
             })
         }
     }
@@ -234,6 +252,9 @@ export default function Circuit(props: {
         } else if (evt.which === '.'.charCodeAt(0)) {
             setBlocks(blocks.filter(block => !selected[block.id]))
             setLinks(links.filter(link => !selected[link.id]))
+        } else if (evt.which === ' '.charCodeAt(0)) {
+            setOffset(Vec2.from(0, 0))
+            setScale(1)
         }
     }
 
@@ -255,6 +276,9 @@ export default function Circuit(props: {
         get() {
             return { links, blocks }
         },
+        bound() {
+            return svgBound
+        }
     }
     const { width, height } = svgRef.current ? svgRef.current.getBoundingClientRect() : { width: 0, height: 0 }
     return <svg ref={ svgRef } width="100%" height="100%" tabIndex={ -1 }

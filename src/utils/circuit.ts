@@ -157,6 +157,8 @@ export class BlockData extends Base {
                 })
             }
             return { width, height, pins }
+        } else if (type === 'joint') {
+            return { width: 16, height: 16, pins: [{ pos: Vec2.from(0, 0), end: Vec2.from(0, 0) }] }
         } else {
             throw Error(`unknown block type ${type}`)
         }

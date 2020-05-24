@@ -7,6 +7,17 @@ import Circuit, { CircuitHandle } from './schematic/circuit'
 import { withMouseDown, useAsyncEffect } from '../utils/dom'
 import rpc from '../utils/rpc'
 
+function BlockDevice(props: {
+    children: JSX.Element | string
+}) {
+    function onMouseDown(evt: React.MouseEvent) {
+        withMouseDown(evt => {
+        })
+    }
+    return <div style={{ margin: 10, display: 'inline-block', width: 64, height: 64 }}
+        onMouseDown={ onMouseDown }>{ props.children }</div>
+}
+
 const saveSiderWidth = debounce((val: number) => localStorage.setItem('saved-sider-width', val + ''), 100)
 export default function Schematic(props: {
     file: string
@@ -33,6 +44,7 @@ export default function Schematic(props: {
             <Layout style={{ height: '100%' }}>
                 <Layout.Sider className="sider" width={ siderWidth }>
                     <div className="content">
+                        <BlockDevice>s2p</BlockDevice>
                     </div>
                     <div className="y-splitter" onMouseDown={ onMouseDownOnYSplitter }></div>
                 </Layout.Sider>
