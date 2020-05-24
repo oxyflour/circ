@@ -68,7 +68,8 @@ function BlockPins(props: {
 }) {
     const { id, pos, pins, type } = props.data
     return <g transform={ `translate(${pos.x}, ${pos.y})` }>
-        { type !== 'joint' && pins.map(({ pos }, pin) => <circle key={ 'd' + pin } cx={ pos.x } cy={ pos.y } r={ 6 }
+        { pins.map(({ pos }, pin) => <circle key={ 'd' + pin } className="block-pin"
+            cx={ pos.x } cy={ pos.y } r={ 6 }
             onMouseDown={ evt => props.onMouseDownOnPin(evt, props.data, pin) }
             onMouseOver={ () => hoverOnBlock[id] = pin }
             onMouseOut={ () => delete hoverOnBlock[id] }
