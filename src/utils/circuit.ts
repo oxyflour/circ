@@ -42,6 +42,10 @@ export class LinkData extends Base {
     copy(update = { } as Partial<LinkData>) {
         return LinkData.fromJSON({ ...this.toJSON(), ...update })
     }
+    reverse() {
+        const { from, to } = this.toJSON()
+        return this.copy({ from: to, to: from })
+    }
     toJSON() {
         const { id, dir } = this,
             breaks = this.breaks.slice(),
@@ -55,6 +59,24 @@ export class LinkData extends Base {
         return link
     }
     static hoverOn = { } as { [link: string]: number }
+    static join(left: LinkData, right: LinkData) {
+        return this.joinPath(left.getPath(), right.getPath(), left, right)
+    }
+    private static joinPath(a: LinkPath[], b: LinkPath[], left: LinkData, right: LinkData, tol = 2): LinkData {
+        const [a0, a1] = [a[0], a[a.length - 1]],
+            [b0, b1] = [b[0], b[b.length - 1]]
+        if (Vec2.from(a1).sub(b0).len() < tol) {
+            return LinkData.fromPath((a1.dir === b0.dir ? a.slice(0, -1) : a).concat(b), left.from, right.to)
+        } else if (Vec2.from(a1).sub(b1).len() < tol) {
+            return this.joinPath(a, b.reverse(), left, right.reverse())
+        } else if (Vec2.from(a0).sub(b0).len() < tol) {
+            return this.joinPath(a.reverse(), b, left.reverse(), right)
+        } else if (Vec2.from(a0).sub(b1).len() < tol) {
+            return this.joinPath(a.reverse(), b.reverse(), left.reverse(), right.reverse())
+        } else {
+            throw Error('cannot joint two lnks')
+        }
+    }
     static fromPath(path: LinkPath[],
             from = null as any, to = null as any) {
         path = mergePath(path, 2)
@@ -172,4 +194,44 @@ export class BlockData extends Base {
     get pins() {
         return BlockData.getShape(this.type, this.rot).pins
     }
+}
+
+export function cleanup(blocks: BlockData[], links: LinkData[]) {
+    const joints = { } as { [id: string]: { joint: BlockData, conns: LinkData[] } }
+    for (const joint of blocks) {
+        if (joint.type === 'joint') {
+            joints[joint.id] = { joint, conns: [] }
+        }
+    }
+    for (const link of links) {
+        for (const end of [link.from, link.to]) {
+            const joint = joints[end.block]
+            if (joint) {
+                joint.conns.push(link)
+            }
+        }
+    }
+    let next = false
+    for (const { conns, joint } of Object.values(joints)) {
+        if (conns.length === 2) {
+            const [a, b] = conns
+            links = links.filter(item => item.id !== a.id && item.id !== b.id).concat(LinkData.join(a, b))
+            blocks = blocks.filter(item => item.id !== joint.id)
+            next = true
+            break
+        } else if (links.length < 2) {
+            blocks = blocks.filter(item => item.id !== joint.id)
+            next = true
+            break
+        }
+    }
+    return { blocks, links, next }
+}
+
+export function cleanupCircuit(blocks: BlockData[], links: LinkData[]) {
+    let ret = { blocks, links, next: true }
+    for (let count = 0; count < 100 && ret.next; count ++) {
+        ret = cleanup(blocks, links)
+    }
+    return ret
 }

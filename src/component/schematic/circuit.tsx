@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react'
 import { range } from '../../utils/common'
 import { Vec2 } from '../../utils/vec2'
 import { withMouseDown } from '../../utils/dom'
-import { LinkData, BlockData } from '../../utils/circuit'
+import { LinkData, BlockData, cleanupCircuit } from '../../utils/circuit'
 
 function Link(props: {
     data: LinkData
@@ -250,8 +250,11 @@ export default function Circuit(props: {
         if (evt.which === 'R'.charCodeAt(0)) {
             setBlocks(blocks.map(block => selected[block.id] ? block.copy({ rot: block.rot + Math.PI / 2 }) : block))
         } else if (evt.which === '.'.charCodeAt(0)) {
-            setBlocks(blocks.filter(block => !selected[block.id]))
-            setLinks(links.filter(link => !selected[link.id]))
+            const ret = cleanupCircuit(
+                blocks.filter(block => !selected[block.id]),
+                links.filter(link => !selected[link.id]))
+            setBlocks(ret.blocks)
+            setLinks(ret.links)
         } else if (evt.which === ' '.charCodeAt(0)) {
             setOffset(Vec2.from(0, 0))
             setScale(1)
