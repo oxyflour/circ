@@ -40,6 +40,9 @@ export class Vec2 {
             r = this.len()
         return new Vec2({ x: r * Math.cos(a), y: r * Math.sin(a), })
     }
+    norm() {
+        return this.div(this.len())
+    }
     lerp(b: IVec2, f: number) {
         return Vec2.from(b).mul(f).add(this.mul(1 - f))
     }

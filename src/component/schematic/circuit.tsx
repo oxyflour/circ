@@ -6,17 +6,17 @@ import { LinkData, BlockData } from '../../utils/circuit'
 
 function Link(props: {
     data: LinkData
-    selected: number
+    selected: boolean
     onMouseDownOnPin: (evt: React.MouseEvent, link: LinkData, atKey: 'from' | 'to') => void
     onMouseDownOnLink: (evt: React.MouseEvent, link: LinkData, idx: number) => void
 }) {
-    const { data: { id, from, to }, data } = props,
+    const { data: { id, from, to }, data, selected } = props,
         path = data.getPath(),
         edges = range(path.length - 1).map(idx => ({ idx, start: path[idx], end: path[idx + 1] }))
     return <>
         { edges.map(({ idx, start, end }) => <line key={ idx }
             x1={ start.x } y1={ start.y } x2={ end.x } y2={ end.y }
-            stroke={ from.block && to.block ? 'gray' : 'orange' } strokeWidth={ 2 } />) }
+            stroke={ selected ? 'blue' : from.block && to.block ? 'gray' : 'orange' } strokeWidth={ 2 } />) }
         { edges.map(({ idx, start, end }) => <line key={ 'l' + idx }
             x1={ start.x } y1={ start.y } x2={ end.x } y2={ end.y } className={ 'link-' + start.dir }
             onMouseDown={ evt => props.onMouseDownOnLink(evt, data, idx) }
@@ -36,10 +36,10 @@ function Link(props: {
 
 function Block(props: {
     data: BlockData
-    selected: number
+    selected: boolean
     onMouseDownOnBlock: (evt: React.MouseEvent, block: BlockData) => void
 }) {
-    const { selected, data: { pos, width, height, pins } } = props,
+    const { selected, data: { pos, rot, width, height, pins } } = props,
         color = selected ? 'blue' : 'gray'
     return <g transform={ `translate(${pos.x}, ${pos.y})` }>
         { pins.map(({ pos, end }, pin) => <line key={ 'b' + pin }
@@ -48,9 +48,11 @@ function Block(props: {
         { pins.map(({ pos }, pin) => <circle key={ 'c' + pin }
             cx={ pos.x } cy={ pos.y } r={ 5 }
             stroke="gray" fill="white" />) }
-        <rect x={ -width/2 } y={ -height/2 } width={ width } height={ height }
-            onMouseDown={ evt => props.onMouseDownOnBlock(evt, props.data) }
-            stroke={ color } fill="white" />
+        <g transform={ `rotate(${rot / Math.PI * 180})` }>
+            <rect x={ -width/2 } y={ -height/2 } width={ width } height={ height }
+                onMouseDown={ evt => props.onMouseDownOnBlock(evt, props.data) }
+                stroke={ color } fill="white" strokeWidth={ 2 } />
+        </g>
     </g>
 }
 
@@ -78,8 +80,8 @@ export default function Circuit(props: {
 }) {
     const [blocks, setBlocks] = useState([] as BlockData[]),
         [links, setLinks] = useState([] as LinkData[]),
-        [selected, setSelected] = useState({ } as { [id: string]: number }),
-        [offset, setOffset] = useState({ x: 0, y: 0 }),
+        [selected, setSelected] = useState({ } as { [id: string]: boolean }),
+        [offset, setOffset] = useState(Vec2.from(0, 0)),
         [scale, setScale] = useState(1),
         svgRef = useRef(null as SVGSVGElement | null),
         svgBound = svgRef.current && svgRef.current.getBoundingClientRect(),
@@ -120,14 +122,19 @@ export default function Circuit(props: {
             base = new Vec2(block.pos)
         withMouseDown(evt => {
             const current = posFromEvent(evt),
-                moving = BlockData.fromJSON(block.toJSON())
-            moving.pos = base.add(current).sub(start)
+                moving = block.copy({ pos: base.add(current).sub(start) })
             setBlocks(blocks.map(item => item.id === moving.id ? moving : item))
+        }, evt => {
+            if (posFromEvent(evt).sub(start).len() < 1) {
+                setSelected({ ...selected, [block.id]: !selected[block.id] })
+            }
         })
     }
     function onMouseDownOnBlockPin(evt: React.MouseEvent, block: BlockData, pin: number) {
         const created = new LinkData()
         Object.assign(created.from, { block: block.id, pin: pin, x: 0, y: 0 })
+        const { pos, end } = block.pins[pin]
+        created.dir = pos.sub(end).norm().x > 0.5 ? 'x' : 'y'
         withMouseDown(evt => {
             const pos = posFromEvent(evt)
             Object.assign(created.to, getHoverLink(pos).at)
@@ -147,7 +154,8 @@ export default function Circuit(props: {
         })
     }
     function onMouseDownOnLink(evt: React.MouseEvent, link: LinkData, idx: number) {
-        const path = link.getPath()
+        const path = link.getPath(),
+            start = posFromEvent(evt)
         if (idx === 0) {
             const first = path[0]
             path.unshift({ dir: path[1].dir, x: first.x, y: first.y })
@@ -164,6 +172,10 @@ export default function Circuit(props: {
             const created = LinkData.fromPath(path, link.from, link.to)
             created.id = link.id
             setLinks(links.map(item => item.id === created.id ? created : item))
+        }, evt => {
+            if (posFromEvent(evt).sub(start).len() < 1) {
+                setSelected({ ...selected, [link.id]: !selected[link.id] })
+            }
         })
     }
     function onMouseDownOnLinkPin(evt: React.MouseEvent, link: LinkData, atKey: 'from' | 'to') {
@@ -173,9 +185,7 @@ export default function Circuit(props: {
         if (block && pos) {
             return onMouseDownOnBlockPin(evt, block, at.pin)
         }
-        const created = LinkData.fromJSON(link.toJSON()),
-            selectedStatus = selected[created.id]
-        setSelected({ ...selected, [link.id]: -1 })
+        const created = link.copy()
         withMouseDown(evt => {
             const pos = posFromEvent(evt)
             Object.assign(created[atKey], getHoverLink(pos).at)
@@ -192,14 +202,20 @@ export default function Circuit(props: {
                     .filter(item => item.id !== link.id && item.id != created.id)
                     .concat([left, right, created]))
             }
-            setSelected({ ...selected, [created.id]: selectedStatus })
         })
     }
     function onMouseDownOnBackground(evt: React.MouseEvent) {
-        const base = Vec2.from(offset).sub(Vec2.from(evt.clientX, evt.clientY))
-        if (evt.button == 1) {
+        const start = posFromEvent(evt)
+        if (evt.button === 0) {
             withMouseDown(evt => {
-                setOffset(Vec2.from(evt.clientX, evt.clientY).add(base))
+            }, evt => {
+                if (posFromEvent(evt).sub(start).len() < 1) {
+                    setSelected({ })
+                }
+            })
+        } else if (evt.button === 1) {
+            withMouseDown(evt => {
+                setOffset(posFromEvent(evt).sub(start).add(offset))
             })
         }
     }
@@ -209,6 +225,11 @@ export default function Circuit(props: {
             newOffset = base.mul(scale - newScale).add(offset)
         setScale(newScale)
         setOffset(newOffset)
+    }
+    function onKeyUp(evt: React.KeyboardEvent) {
+        if (evt.which === 'R'.charCodeAt(0)) {
+            setBlocks(blocks.map(block => selected[block.id] ? block.copy({ rot: block.rot + Math.PI / 2 }) : block))
+        }
     }
 
     props.handle.current = {
@@ -231,7 +252,9 @@ export default function Circuit(props: {
         },
     }
     const { width, height } = svgRef.current ? svgRef.current.getBoundingClientRect() : { width: 0, height: 0 }
-    return <svg ref={ svgRef } width="100%" height="100%" onWheel={ onMouseWheelOnBackground }>
+    return <svg ref={ svgRef } width="100%" height="100%" tabIndex={ -1 }
+            onKeyUp={ onKeyUp }
+            onWheel={ onMouseWheelOnBackground }>
         <g transform={ `translate(${offset.x} ${offset.y}) scale(${scale})` }>
             <rect width={ width } height={ height } fill="white"
                 onMouseDown={ onMouseDownOnBackground } />

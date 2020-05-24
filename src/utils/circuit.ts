@@ -39,6 +39,9 @@ export class LinkData extends Base {
     to   = { block: '', pin: -1, x: 0, y: 0 }
     dir = 'x' as 'x' | 'y'
     breaks = [] as number[]
+    copy(update = { } as Partial<LinkData>) {
+        return LinkData.fromJSON({ ...this.toJSON(), ...update })
+    }
     toJSON() {
         const { id, dir } = this,
             breaks = this.breaks.slice(),
@@ -122,19 +125,23 @@ export interface BlockPin {
 export class BlockData extends Base {
     type = 'nil.s5p'
     pos = new Vec2()
+    rot = 0
+    copy(update = { } as Partial<BlockData>) {
+        return BlockData.fromJSON({ ...this.toJSON(), ...update })
+    }
     toJSON() {
-        const { id, type, pos: { x, y } } = this
-        return { id, type, pos: { x, y } }
+        const { id, type, rot, pos: { x, y } } = this
+        return { id, type, rot, pos: { x, y } }
     }
     static fromJSON(json: any) {
-        const { id, type, pos: { x, y } } = json,
+        const { id, type, rot, pos: { x, y } } = json,
             pos = Vec2.from(x, y),
             block = new BlockData()
-        Object.assign(block, { id, type, pos })
+        Object.assign(block, { id, type, rot, pos })
         return block
     }
     static hoverOn = { } as { [block: string]: number }
-    private static getShape = memo((type: string) => {
+    private static getShape = memo((type: string, rot: number) => {
         const [, portNum] = type.match(/.*\.s(\d+)p/) || ['', '']
         if (portNum) {
             const ports = parseInt(portNum),
@@ -145,8 +152,8 @@ export class BlockData extends Base {
                 const d = i % 2 ? 1 : -1,
                     y = (Math.floor(i / 2) + 0.5) * 30 + 20 * 0.5
                 pins.push({
-                    pos: Vec2.from(d * 35, y - height * 0.5),
-                    end: Vec2.from(d * 25, y - height * 0.5),
+                    pos: Vec2.from(d * 35, y - height * 0.5).rot(rot),
+                    end: Vec2.from(d * 25, y - height * 0.5).rot(rot),
                 })
             }
             return { width, height, pins }
@@ -155,12 +162,12 @@ export class BlockData extends Base {
         }
     })
     get width() {
-        return BlockData.getShape(this.type).width
+        return BlockData.getShape(this.type, this.rot).width
     }
     get height() {
-        return BlockData.getShape(this.type).height
+        return BlockData.getShape(this.type, this.rot).height
     }
     get pins() {
-        return BlockData.getShape(this.type).pins
+        return BlockData.getShape(this.type, this.rot).pins
     }
 }
