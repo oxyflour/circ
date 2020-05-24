@@ -231,6 +231,9 @@ export default function Circuit(props: {
     function onKeyUp(evt: React.KeyboardEvent) {
         if (evt.which === 'R'.charCodeAt(0)) {
             setBlocks(blocks.map(block => selected[block.id] ? block.copy({ rot: block.rot + Math.PI / 2 }) : block))
+        } else if (evt.which === '.'.charCodeAt(0)) {
+            setBlocks(blocks.filter(block => !selected[block.id]))
+            setLinks(links.filter(link => !selected[link.id]))
         }
     }
 
