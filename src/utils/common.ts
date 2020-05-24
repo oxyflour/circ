@@ -1,3 +1,5 @@
+export type Dict<V> = { [k: string]: V }
+
 export function uid(len = 8) {
     return Math.random().toString(16).slice(2, len + 2)
 }

@@ -32,6 +32,9 @@ export class Vec2 {
     mul(val: number) {
         return this.map(this, a => a * val)
     }
+    div(val: number) {
+        return this.map(this, a => a / val)
+    }
     rot(angle: number) {
         const a = Math.atan2(this.y, this.x) + angle,
             r = this.len()

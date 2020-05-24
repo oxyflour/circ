@@ -1,79 +1,74 @@
-import React, { useRef, useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { render } from 'react-dom'
-import { HashRouter, Route, Switch, useParams, Redirect } from 'react-router-dom'
+import { HashRouter, Route, Switch, useParams, Redirect, useHistory } from 'react-router-dom'
 
-import Button from 'antd/es/button'
 import Tree from 'antd/es/tree'
 import Spin from 'antd/es/spin'
-import { DataNode } from 'rc-tree/es/interface'
-
-import Circuit, { CircuitHandle } from './component/circuit'
+import Layout from 'antd/es/layout'
+import message from 'antd/es/message'
 
 import 'antd/dist/antd.css'
 import './www.less'
-import { useAsyncEffect } from './utils/dom'
+
 import rpc from './utils/rpc'
+import { useAsyncEffect, withMouseDown } from './utils/dom'
+import { DataNode } from './api'
+import { debounce } from './utils/common'
 
-function Schematic(props: {
-    width: number
-    height: number
-}) {
-    const toolTopHeight = 50,
-        toolLeftWidth = 150,
-        { width, height } = props,
-        circuit = useRef({ } as CircuitHandle)
-    return <>
-        <div className="top" style={{ height: toolTopHeight }}></div>
-        <div>
-            <div className="left" style={{
-                width: toolLeftWidth,
-                height: height - toolTopHeight,
-            }}>
-                <div className="content">
-                    <Button onClick={ () => circuit.current.addBlock() }>Add Block</Button>
-                </div>
-            </div>
-            <div style={{ marginLeft: toolLeftWidth }}>
-                <Circuit handle={ circuit }
-                    width={ width - toolLeftWidth }
-                    height={ height - toolTopHeight } />
-            </div>
-        </div>
-    </>
-}
+import Schematic from './component/schematic'
 
+const saveNavWidth = debounce((val: number) => localStorage.setItem('saved-nav-width', val + ''), 100)
 function Main() {
-    const navWidth = 150,
-        { innerWidth, innerHeight } = window
-    
-    const { id } = useParams() as { id: string }
-    
-    const [navTree, setNavTree] = useState([] as DataNode[]),
-        [isLoadingNavTree, setLoadingNavTree] = useState(true)
+    const { id } = useParams() as { id: string },
+        history = useHistory(),
+        [navWidth, setNavWidth] = useState(parseInt(localStorage.getItem('saved-nav-width') || '250')),
+        [navTree, setNavTree] = useState([] as DataNode[]),
+        [isLoadingNavTree, setLoadingNavTree] = useState(true),
+        [selectedKeys, setSelectedKeys] = useState([] as React.ReactText[])
+
     useAsyncEffect(async () => {
         setLoadingNavTree(true)
         try {
             setNavTree(await rpc.notebook.get(id))
         } catch (err) {
+            message.error(`load notebook ${id} failed`)
             console.error(err)
         }
         setLoadingNavTree(false)
     }, [id])
+    useEffect(() => {
+        saveNavWidth(navWidth)
+    }, [navWidth])
 
-    return <>
-        <div className="nav" style={{ width: navWidth, height: innerHeight }}>
+    function onMouseDownOnYSplitter(evt: React.MouseEvent) {
+        const start = navWidth - evt.clientX
+        withMouseDown(evt => setNavWidth(evt.clientX + start))
+    }
+    function onSelectTreeKeys(keys: React.ReactText[]) {
+        if (keys.length === 1) {
+            history.push('/notebook/' + keys[0].toString())
+        }
+        setSelectedKeys(keys)
+    }
+    return <Layout style={{ height: '100%' }}>
+        <Layout.Sider className="nav" width={ navWidth }>
             <div className="content">
             {
                 isLoadingNavTree ?
                 <Spin /> :
-                <Tree treeData={ navTree }></Tree>
+                <Tree treeData={ navTree }
+                    selectedKeys={ selectedKeys } onSelect={ onSelectTreeKeys } />
             }
             </div>
-        </div>
-        <div className="main" style={{ marginLeft: navWidth }}>
-            <Schematic width={ innerWidth - navWidth } height={ innerHeight } />
-        </div>
-    </>
+            <div className="y-splitter" onMouseDown={ onMouseDownOnYSplitter }></div>
+        </Layout.Sider>
+        <Layout.Content className="main">
+            {
+                selectedKeys.length === 1 && selectedKeys[0].toString().endsWith('.schematic') &&
+                <Schematic file={ selectedKeys[0].toString() } />
+            }
+        </Layout.Content>
+    </Layout>
 }
 
 render(<HashRouter>
