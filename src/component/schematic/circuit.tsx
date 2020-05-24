@@ -126,7 +126,8 @@ export default function Circuit(props: {
             setBlocks(blocks.map(item => item.id === moving.id ? moving : item))
         }, evt => {
             if (posFromEvent(evt).sub(start).len() < 1) {
-                setSelected({ ...selected, [block.id]: !selected[block.id] })
+                const prev = evt.ctrlKey ? selected : { }
+                setSelected({ ...prev, [block.id]: !selected[block.id] })
             }
         })
     }
@@ -174,7 +175,8 @@ export default function Circuit(props: {
             setLinks(links.map(item => item.id === created.id ? created : item))
         }, evt => {
             if (posFromEvent(evt).sub(start).len() < 1) {
-                setSelected({ ...selected, [link.id]: !selected[link.id] })
+                const prev = evt.ctrlKey ? selected : { }
+                setSelected({ ...prev, [link.id]: !selected[link.id] })
             }
         })
     }
