@@ -6,6 +6,7 @@ import Tree from 'antd/es/tree'
 import Spin from 'antd/es/spin'
 import Layout from 'antd/es/layout'
 import message from 'antd/es/message'
+import { EventDataNode } from 'rc-tree/lib/interface'
 
 import 'antd/dist/antd.css'
 import './www.less'
@@ -44,11 +45,12 @@ function Main() {
         const start = navWidth - evt.clientX
         withMouseDown(evt => setNavWidth(evt.clientX + start))
     }
-    function onSelectTreeKeys(keys: React.ReactText[]) {
+    function onSelectTreeKeys(keys: React.ReactText[], { nativeEvent, node }: { nativeEvent: MouseEvent, node: EventDataNode }) {
         if (keys.length === 1) {
             history.push('/notebook/' + keys[0].toString())
         }
-        setSelectedKeys(keys)
+        // we have to check ctrl key here
+        setSelectedKeys(nativeEvent.ctrlKey ? keys : [node.key])
     }
     return <Layout style={{ height: '100%' }}>
         <Layout.Sider className="nav" width={ navWidth }>
@@ -56,7 +58,7 @@ function Main() {
             {
                 isLoadingNavTree ?
                 <Spin /> :
-                <Tree treeData={ navTree }
+                <Tree treeData={ navTree } multiple
                     selectedKeys={ selectedKeys } onSelect={ onSelectTreeKeys } />
             }
             </div>
