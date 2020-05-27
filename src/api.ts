@@ -36,9 +36,9 @@ export default {
         async get(id: string) {
             const blocks = [] as BlockData[], links = [] as LinkData[]
             if (id.endsWith('.schematic')) {
-                const block = new BlockData()
+                const block = new BlockData<{ name: string }>()
                 block.type = '.s5p'
-                block.props.name = 'nil.s5p'
+                block.attrs.name = 'nil.s5p'
                 block.rot = Math.PI / 2
                 block.pos.set(100, 100)
                 blocks.push(block)

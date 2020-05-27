@@ -39,13 +39,27 @@ function Link(props: {
     </>
 }
 
+function BlockAttr(props: {
+    idx: number
+    block: BlockData
+    name: string
+    val: any
+}) {
+    const { idx, block, name, val } = props
+    if (name === 'name') {
+        return <text x={ 0 } y={ block.height / 2 + 20 + idx * 20 } textAnchor="middle">{ val }</text>
+    }
+    return <>
+    </>
+}
+
 const hoverOnBlock = { } as { [id: string]: number }
 function Block(props: {
     data: BlockData
     selected: boolean
     onMouseDownOnBlock: (evt: React.MouseEvent, block: BlockData) => void
 }) {
-    const { selected, data: { pos, rot, width, height, pins, labels, type } } = props,
+    const { selected, data, data: { pos, rot, width, height, pins, labels, type, attrs } } = props,
         color = selected ? 'blue' : type === 'joint' ? 'transparent' : 'gray'
     return <g transform={ `translate(${pos.x}, ${pos.y})` }>
         { pins.map(({ pos, end }, pin) => <line key={ 'b' + pin }
@@ -62,6 +76,10 @@ function Block(props: {
         {
             labels.map(({ pos, val }, idx) => <text key={ idx }
                 x={ pos.x } y={ pos.y } textAnchor="middle" alignmentBaseline="central">{ val }</text>)
+        }
+        {
+            Object.keys(attrs).filter(key => !key.startsWith('.')).map((key, idx) => <BlockAttr key={ key }
+                idx={ idx } block={ data } name={ key } val={ attrs[key] } />)
         }
     </g>
 }

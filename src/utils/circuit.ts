@@ -144,24 +144,24 @@ export interface BlockPin {
     end: Vec2
 }
 
-export class BlockData extends Base {
+export class BlockData<P = any> extends Base {
     type = 'nil.s5p'
-    props = { } as { [name: string]: any }
+    attrs = { } as P
     pos = new Vec2()
     rot = 0
     copy(update = { } as Partial<BlockData>) {
         return BlockData.fromJSON({ ...this.toJSON(), ...update })
     }
     toJSON() {
-        const { id, type, rot, pos: { x, y }, props } = this
-        return { id, type, rot, pos: { x, y }, props: JSON.stringify(props) }
+        const { id, type, rot, pos: { x, y }, attrs } = this
+        return { id, type, rot, pos: { x, y }, attrs: JSON.stringify(attrs) }
     }
     static fromJSON(json: any) {
-        const { id, type, rot, pos: { x, y }, props: propsJson } = json,
+        const { id, type, rot, pos: { x, y }, attrs: attrsJson } = json,
             pos = Vec2.from(x, y),
             block = new BlockData(),
-            props = JSON.parse(propsJson)
-        Object.assign(block, { id, type, rot, pos, props })
+            attrs = JSON.parse(attrsJson)
+        Object.assign(block, { id, type, rot, pos, attrs })
         return block
     }
     private static getShape = memo((type: string, rot: number) => {
