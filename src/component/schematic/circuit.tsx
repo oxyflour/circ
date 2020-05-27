@@ -45,7 +45,7 @@ function Block(props: {
     selected: boolean
     onMouseDownOnBlock: (evt: React.MouseEvent, block: BlockData) => void
 }) {
-    const { selected, data: { pos, rot, width, height, pins, type } } = props,
+    const { selected, data: { pos, rot, width, height, pins, labels, type } } = props,
         color = selected ? 'blue' : type === 'joint' ? 'transparent' : 'gray'
     return <g transform={ `translate(${pos.x}, ${pos.y})` }>
         { pins.map(({ pos, end }, pin) => <line key={ 'b' + pin }
@@ -59,6 +59,10 @@ function Block(props: {
                 onMouseDown={ evt => props.onMouseDownOnBlock(evt, props.data) }
                 stroke={ color } fill="white" strokeWidth={ 2 } />
         </g>
+        {
+            labels.map(({ pos, val }, idx) => <text key={ idx }
+                x={ pos.x } y={ pos.y } textAnchor="middle" alignmentBaseline="central">{ val }</text>)
+        }
     </g>
 }
 

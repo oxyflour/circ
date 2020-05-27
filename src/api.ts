@@ -38,6 +38,7 @@ export default {
             if (id.endsWith('.schematic')) {
                 const block = new BlockData()
                 block.type = '.s5p'
+                block.props.name = 'nil.s5p'
                 block.rot = Math.PI / 2
                 block.pos.set(100, 100)
                 blocks.push(block)

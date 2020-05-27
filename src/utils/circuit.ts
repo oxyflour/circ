@@ -146,20 +146,22 @@ export interface BlockPin {
 
 export class BlockData extends Base {
     type = 'nil.s5p'
+    props = { } as { [name: string]: any }
     pos = new Vec2()
     rot = 0
     copy(update = { } as Partial<BlockData>) {
         return BlockData.fromJSON({ ...this.toJSON(), ...update })
     }
     toJSON() {
-        const { id, type, rot, pos: { x, y } } = this
-        return { id, type, rot, pos: { x, y } }
+        const { id, type, rot, pos: { x, y }, props } = this
+        return { id, type, rot, pos: { x, y }, props: JSON.stringify(props) }
     }
     static fromJSON(json: any) {
-        const { id, type, rot, pos: { x, y } } = json,
+        const { id, type, rot, pos: { x, y }, props: propsJson } = json,
             pos = Vec2.from(x, y),
-            block = new BlockData()
-        Object.assign(block, { id, type, rot, pos })
+            block = new BlockData(),
+            props = JSON.parse(propsJson)
+        Object.assign(block, { id, type, rot, pos, props })
         return block
     }
     private static getShape = memo((type: string, rot: number) => {
@@ -168,7 +170,8 @@ export class BlockData extends Base {
             const ports = parseInt(portNum),
                 width = 50,
                 height = Math.ceil(ports / 2) * 30 + 20,
-                pins = [] as BlockPin[]
+                pins = [] as BlockPin[],
+                labels = [] as { pos: Vec2, val: string }[]
             for (const i of range(ports)) {
                 const d = i % 2 ? 1 : -1,
                     y = (Math.floor(i / 2) + 0.5) * 30 + 20 * 0.5
@@ -176,10 +179,18 @@ export class BlockData extends Base {
                     pos: Vec2.from(d * 35, y - height * 0.5).rot(rot),
                     end: Vec2.from(d * 25, y - height * 0.5).rot(rot),
                 })
+                labels.push({
+                    pos: Vec2.from(d * 15, y - height * 0.5).rot(rot),
+                    val: `${i + 1}`
+                })
             }
-            return { width, height, pins }
+            return { width, height, pins, labels }
         } else if (type === 'joint') {
-            return { width: 16, height: 16, pins: [{ pos: Vec2.from(0, 0), end: Vec2.from(0, 0) }] }
+            const width = 16,
+                height = 16,
+                pins = [{ pos: Vec2.from(0, 0), end: Vec2.from(0, 0) }],
+                labels = [] as { pos: Vec2, val: string }[]
+            return { width, height, pins, labels }
         } else {
             throw Error(`unknown block type ${type}`)
         }
@@ -192,6 +203,9 @@ export class BlockData extends Base {
     }
     get pins() {
         return BlockData.getShape(this.type, this.rot).pins
+    }
+    get labels() {
+        return BlockData.getShape(this.type, this.rot).labels
     }
 }
 
