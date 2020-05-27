@@ -3,7 +3,6 @@ import os from 'os'
 import path from 'path'
 
 import { spawn } from './utils/node'
-import { sleep } from './utils/common'
 import { BlockData, LinkData } from './utils/circuit'
 
 export interface DataNode {
@@ -13,12 +12,12 @@ export interface DataNode {
 }
 
 const root = path.join(os.homedir(), 'notebook')
-async function listdir(dir: string, depth = 3): Promise<DataNode[]> {
-    const items = await fs.readdir(path.join(root, dir))
+async function listdir(dir: string, sub = '', depth = 3): Promise<DataNode[]> {
+    const items = await fs.readdir(path.join(dir, sub))
     return await Promise.all(items.map(async title => {
-        const key = dir + '/' + title,
-            stat = await fs.stat(path.join(root, key)),
-            children = depth > 0 && stat.isDirectory() ? await listdir(key, depth - 1) : []
+        const key = sub + '/' + title,
+            stat = await fs.stat(path.join(dir, key)),
+            children = depth > 0 && stat.isDirectory() ? await listdir(dir, key, depth - 1) : []
         return { title, key, children }
     }))
 }
@@ -29,7 +28,7 @@ export default {
             return await fs.readdir(root)
         },
         async get(id: string) {
-            return await listdir(id)
+            return await listdir(path.join(root, id))
         },
     },
     schematic: {
