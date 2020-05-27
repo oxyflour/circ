@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { Vec2 } from './vec2'
 
 export function withMouseDown(onMouseMove: (evt: MouseEvent) => void, onMouseUp?: (evt: MouseEvent) => void) {
     const move = (evt: MouseEvent) => {
@@ -17,4 +18,8 @@ export function useAsyncEffect(effect: () => Promise<any>, deps?: React.Dependen
     useEffect(() => {
         effect()
     }, deps)
+}
+
+export function inside({ x, y }: { x: number, y: number }, { left, right, top, bottom }: DOMRect) {
+    return left <= x && x <= right && top <= y && y <= bottom
 }

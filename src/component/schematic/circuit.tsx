@@ -1,8 +1,13 @@
 import React, { useState, useRef } from 'react'
 import { range } from '../../utils/common'
 import { Vec2 } from '../../utils/vec2'
-import { withMouseDown } from '../../utils/dom'
+import { withMouseDown, inside } from '../../utils/dom'
 import { LinkData, BlockData, cleanupCircuit } from '../../utils/circuit'
+
+export interface CircuitHandle {
+    load(data: { blocks: any[], links: any[] }): void
+    beginAdd(data: Partial<BlockData>, cb: () => void): void
+}
 
 const hoverOnLink = { } as { [id: string]: number }
 function Link(props: {
@@ -97,12 +102,6 @@ function BlockPins(props: {
             onMouseOut={ () => delete hoverOnBlock[id] }
             fill="transparent" />) }
     </g>
-}
-
-export interface CircuitHandle {
-    load(data: { blocks: any[], links: any[] }): void
-    get(): { blocks: BlockData[], links: LinkData[] }
-    bound(): DOMRect | null
 }
 
 export default function Circuit(props: {
@@ -282,12 +281,17 @@ export default function Circuit(props: {
             }
             setBlocksAndLinks(blocks, links)
         },
-        get() {
-            return { links, blocks }
+        beginAdd(data: Partial<BlockData>, cb: () => void) {
+            const bound = svgBound || document.body.getBoundingClientRect(),
+                created = new BlockData()
+            Object.assign(created, data)
+            withMouseDown(evt => {
+                created.pos = posFromEvent(evt)
+                setBlocks(inside({ x: evt.clientX, y: evt.clientY }, bound) ? blocks.concat(created) : blocks)
+            }, evt => {
+                cb()
+            })
         },
-        bound() {
-            return svgBound
-        }
     }
     const { width, height } = svgRef.current ? svgRef.current.getBoundingClientRect() : { width: 0, height: 0 }
     return <svg ref={ svgRef } width="100%" height="100%" tabIndex={ -1 }

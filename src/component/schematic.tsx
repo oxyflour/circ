@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react'
 
 import Layout from 'antd/es/layout'
+import Button from 'antd/es/button'
 
 import { debounce } from '../utils/common'
 import Circuit, { CircuitHandle } from './schematic/circuit'
@@ -9,13 +10,15 @@ import rpc from '../utils/rpc'
 
 function BlockDevice(props: {
     children: JSX.Element | string
+    circuit: React.MutableRefObject<CircuitHandle>
 }) {
+    const [disabled, setDisabled] = useState(false)
     function onMouseDown(evt: React.MouseEvent) {
-        withMouseDown(evt => {
-        })
+        setDisabled(true)
+        props.circuit.current.beginAdd({ type: '.s2p' }, () => setDisabled(false))
     }
-    return <div style={{ margin: 10, display: 'inline-block', width: 64, height: 64 }}
-        onMouseDown={ onMouseDown }>{ props.children }</div>
+    return <Button style={{ margin: 10 }} disabled={ disabled }
+        onMouseDown={ onMouseDown }>{ props.children }</Button>
 }
 
 const saveSiderWidth = debounce((val: number) => localStorage.setItem('saved-sider-width', val + ''), 100)
@@ -44,7 +47,7 @@ export default function Schematic(props: {
             <Layout style={{ height: '100%' }}>
                 <Layout.Sider className="sider" width={ siderWidth }>
                     <div className="content">
-                        <BlockDevice>s2p</BlockDevice>
+                        <BlockDevice circuit={ circuit }>s2p</BlockDevice>
                     </div>
                     <div className="y-splitter" onMouseDown={ onMouseDownOnYSplitter }></div>
                 </Layout.Sider>
