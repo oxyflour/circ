@@ -265,7 +265,7 @@ export default function Circuit(props: {
     }
     function onMouseWheelOnBackground(evt: React.WheelEvent) {
         const base = posFromEvent(evt),
-            newScale = scale * (1 + evt.deltaY * 2e-4),
+            newScale = scale * (1 + evt.deltaY * 5e-4),
             newOffset = base.mul(scale - newScale).add(offset)
         setScale(newScale)
         setOffset(newOffset)
