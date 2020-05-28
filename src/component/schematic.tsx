@@ -50,6 +50,7 @@ export default function Schematic(props: {
                     <div className="content">
                         <BlockDevice type=".s2p" circuit={ circuit }>s2p</BlockDevice>
                         <BlockDevice type="gnd" circuit={ circuit }>gnd</BlockDevice>
+                        <BlockDevice type="lc" circuit={ circuit }>lc</BlockDevice>
                     </div>
                     <div className="y-splitter" onMouseDown={ onMouseDownOnYSplitter }></div>
                 </Layout.Sider>

@@ -84,6 +84,11 @@ function Block(props: {
                         onMouseDown={ evt => props.onMouseDownOnBlock(evt, props.data) }
                         fill="transparent" />
                 </> :
+                type === 'lc' ? <>
+                    <rect x={ -width/2 } y={ -height/2 } width={ width } height={ height }
+                        onMouseDown={ evt => props.onMouseDownOnBlock(evt, props.data) }
+                        stroke={ color } fill="transparent" />
+                </> :
                 type === 'joint' ?
                     <rect x={ -width/2 } y={ -height/2 } width={ width } height={ height }
                         onMouseDown={ evt => props.onMouseDownOnBlock(evt, props.data) }
