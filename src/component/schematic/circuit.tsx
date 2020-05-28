@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react'
 import { range } from '../../utils/common'
 import { Vec2 } from '../../utils/vec2'
-import { withMouseDown, inside } from '../../utils/dom'
+import { withMouseDown, inside, intersect } from '../../utils/dom'
 import { LinkData, BlockData, cleanupCircuit } from '../../utils/circuit'
 
 export interface CircuitHandle {
@@ -112,6 +112,7 @@ export default function Circuit(props: {
         [selected, setSelected] = useState({ } as { [id: string]: boolean }),
         [offset, setOffset] = useState(Vec2.from(0, 0)),
         [scale, setScale] = useState(1),
+        [selectBox, setSelectBox] = useState({ left: 0, top: 0, right: 0, bottom: 0 }),
         svgRef = useRef(null as SVGSVGElement | null),
         svgBound = svgRef.current && svgRef.current.getBoundingClientRect(),
         svgBase = svgBound ? Vec2.from(svgBound.left, svgBound.top) : Vec2.from(0, 0)
@@ -226,16 +227,37 @@ export default function Circuit(props: {
         })
     }
     function onMouseDownOnBackground(evt: React.MouseEvent) {
-        const start = posFromEvent(evt),
-            base = Vec2.from(offset.x - evt.clientX, offset.y - evt.clientY)
         if (evt.button === 0) {
+            function getBound(evt: MouseEvent) {
+                const end = posFromEvent(evt),
+                    [left, right] = [Math.min(start.x, end.x), Math.max(start.x, end.x)],
+                    [top, bottom] = [Math.min(start.y, end.y), Math.max(start.y, end.y)]
+                return { left, right, top, bottom }
+            }
+            const start = posFromEvent(evt)
             withMouseDown(evt => {
+                setSelectBox(getBound(evt))
             }, evt => {
                 if (posFromEvent(evt).sub(start).len() < 1) {
                     setSelected({ })
+                } else {
+                    const selectBox = getBound(evt),
+                        selected = { } as { [id: string]: boolean }
+                    for (const { width, height, pos, id } of blocks) {
+                        // TODO: take care of rotated blocks
+                        const [hw, hh] = [width / 2, height / 2],
+                            bound = { left: pos.x - hw, right: pos.x + hw, top: pos.y - hh, bottom: pos.y + hh }
+                        selected[id] = intersect(bound, selectBox)
+                    }
+                    for (const { id, from, to } of links) {
+                        selected[id] = inside(from, selectBox) || inside(to, selectBox)
+                    }
+                    setSelected(selected)
+                    setSelectBox({ left: 0, right: 0, top: 0, bottom: 0 })
                 }
             })
         } else if (evt.button === 1) {
+            const base = Vec2.from(offset.x - evt.clientX, offset.y - evt.clientY)
             withMouseDown(evt => {
                 setOffset(Vec2.from(evt.clientX, evt.clientY).add(base))
             })
@@ -298,7 +320,7 @@ export default function Circuit(props: {
             onKeyUp={ onKeyUp }
             onWheel={ onMouseWheelOnBackground }>
         <g transform={ `translate(${offset.x} ${offset.y}) scale(${scale})` }>
-            <rect width={ width } height={ height } fill="white"
+            <rect className="circuit-bg" width={ width } height={ height } fill="white"
                 onMouseDown={ onMouseDownOnBackground } />
             { blocks.map(block => <Block key={ block.id } data={ block }
                 selected={ selected[block.id] }
@@ -309,6 +331,12 @@ export default function Circuit(props: {
                 onMouseDownOnLink={ onMouseDownOnLink } />) }
             { blocks.map(block => <BlockPins key={ 'p' + block.id } data={ block }
                 onMouseDownOnPin={ onMouseDownOnBlockPin } />) }
+            {
+                selectBox.left < selectBox.right && selectBox.top < selectBox.bottom &&
+                <rect x={ selectBox.left } y={ selectBox.top }
+                    width={ selectBox.right - selectBox.left } height={ selectBox.bottom - selectBox.top }
+                    stroke="blue" fill="rgba(100, 100, 200, 0.5)" />
+            }
         </g>
     </svg>
 }

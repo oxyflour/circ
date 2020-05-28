@@ -1,5 +1,4 @@
 import { useEffect } from 'react'
-import { Vec2 } from './vec2'
 
 export function withMouseDown(onMouseMove: (evt: MouseEvent) => void, onMouseUp?: (evt: MouseEvent) => void) {
     const move = (evt: MouseEvent) => {
@@ -20,6 +19,22 @@ export function useAsyncEffect(effect: () => Promise<any>, deps?: React.Dependen
     }, deps)
 }
 
-export function inside({ x, y }: { x: number, y: number }, { left, right, top, bottom }: DOMRect) {
+export interface Point {
+    x: number
+    y: number
+}
+
+export interface Rect {
+    left: number
+    right: number
+    top: number
+    bottom: number
+}
+
+export function inside({ x, y }: Point, { left, right, top, bottom }: Rect) {
     return left <= x && x <= right && top <= y && y <= bottom
+}
+
+export function intersect(rt1: Rect, rt2: Rect) {
+    return rt1.right >= rt2.left && rt2.right >= rt1.left && rt1.bottom >= rt2.top && rt2.bottom >= rt1.top
 }
