@@ -1,4 +1,7 @@
 import React, { useState, useRef } from 'react'
+
+import Modal from 'antd/es/modal'
+
 import { range } from '../../utils/common'
 import { Vec2 } from '../../utils/vec2'
 import { withMouseDown, inside, intersect } from '../../utils/dom'
@@ -124,6 +127,15 @@ function BlockPins(props: {
     </g>
 }
 
+// TODO:
+function Editor(props: {
+    block: BlockData
+}) {
+    return <>
+    </>
+}
+
+const lastClickTick = { at: 0 }
 export default function Circuit(props: {
     handle: React.MutableRefObject<CircuitHandle>
 }) {
@@ -133,6 +145,7 @@ export default function Circuit(props: {
         [offset, setOffset] = useState(Vec2.from(0, 0)),
         [scale, setScale] = useState(1),
         [selectBox, setSelectBox] = useState({ left: 0, top: 0, right: 0, bottom: 0 }),
+        [editingBlock, setEditingBlock] = useState(null as null | BlockData),
         svgRef = useRef(null as SVGSVGElement | null),
         svgBound = svgRef.current && svgRef.current.getBoundingClientRect(),
         svgBase = svgBound ? Vec2.from(svgBound.left, svgBound.top) : Vec2.from(0, 0)
@@ -179,6 +192,10 @@ export default function Circuit(props: {
             if (posFromEvent(evt).sub(start).len() < 1) {
                 const prev = evt.ctrlKey ? selected : { }
                 setSelected({ ...prev, [block.id]: !selected[block.id] })
+                if (Date.now() - lastClickTick.at < 200) {
+                    setEditingBlock(block.copy())
+                }
+                lastClickTick.at = Date.now()
             }
         })
     }
@@ -336,7 +353,16 @@ export default function Circuit(props: {
         },
     }
     const { width, height } = svgRef.current ? svgRef.current.getBoundingClientRect() : { width: 0, height: 0 }
-    return <svg ref={ svgRef } width="100%" height="100%" tabIndex={ -1 }
+    return <>
+    <Modal visible={ !!editingBlock }
+        title={ editingBlock && `Editing Block ${editingBlock.type}` }
+        onOk={ () => setEditingBlock(null) }
+        onCancel={ () => setEditingBlock(null) }>
+        {
+            editingBlock && <Editor block={ editingBlock } />
+        }
+    </Modal>
+    <svg ref={ svgRef } width="100%" height="100%" tabIndex={ -1 }
             onKeyUp={ onKeyUp }
             onWheel={ onMouseWheelOnBackground }>
         <g transform={ `translate(${offset.x} ${offset.y}) scale(${scale})` }>
@@ -359,4 +385,5 @@ export default function Circuit(props: {
             }
         </g>
     </svg>
+    </>
 }
