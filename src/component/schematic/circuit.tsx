@@ -65,7 +65,7 @@ function Block(props: {
     onMouseDownOnBlock: (evt: React.MouseEvent, block: BlockData) => void
 }) {
     const { selected, data, data: { pos, rot, width, height, pins, labels, type, attrs } } = props,
-        color = selected ? 'blue' : type === 'joint' ? 'transparent' : 'gray'
+        color = selected ? 'blue' : 'gray'
     return <g transform={ `translate(${pos.x}, ${pos.y})` }>
         { pins.map(({ pos, end }, pin) => <line key={ 'b' + pin }
             x1={ pos.x } y1={ pos.y } x2={ end.x } y2={ end.y }
@@ -74,9 +74,24 @@ function Block(props: {
             cx={ pos.x } cy={ pos.y } r={ 5 }
             stroke="gray" fill="white" />) }
         <g transform={ `rotate(${rot / Math.PI * 180})` }>
-            <rect x={ -width/2 } y={ -height/2 } width={ width } height={ height }
-                onMouseDown={ evt => props.onMouseDownOnBlock(evt, props.data) }
-                stroke={ color } fill="white" strokeWidth={ 2 } />
+            {
+                type === 'gnd' ? <>
+                    <line x1={ -25 } y1={  0 } x2={ 25 } y2={  0 } stroke={ color }></line>
+                    <line x1={ -20 } y1={  5 } x2={ 20 } y2={  5 } stroke={ color }></line>
+                    <line x1={ -15 } y1={ 10 } x2={ 15 } y2={ 10 } stroke={ color }></line>
+                    <line x1={ -10 } y1={ 15 } x2={ 10 } y2={ 15 } stroke={ color }></line>
+                    <rect x={ -width/2 } y={ -height/2 } width={ width } height={ height }
+                        onMouseDown={ evt => props.onMouseDownOnBlock(evt, props.data) }
+                        fill="transparent" />
+                </> :
+                type === 'joint' ?
+                    <rect x={ -width/2 } y={ -height/2 } width={ width } height={ height }
+                        onMouseDown={ evt => props.onMouseDownOnBlock(evt, props.data) }
+                        fill="transparent" /> :
+                    <rect x={ -width/2 } y={ -height/2 } width={ width } height={ height }
+                        onMouseDown={ evt => props.onMouseDownOnBlock(evt, props.data) }
+                        stroke={ color } fill="white" strokeWidth={ 2 } />
+            }
         </g>
         {
             labels.map(({ pos, val }, idx) => <text key={ idx }

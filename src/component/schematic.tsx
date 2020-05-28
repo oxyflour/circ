@@ -9,13 +9,14 @@ import { withMouseDown, useAsyncEffect } from '../utils/dom'
 import rpc from '../utils/rpc'
 
 function BlockDevice(props: {
+    type: string
     children: JSX.Element | string
     circuit: React.MutableRefObject<CircuitHandle>
 }) {
     const [disabled, setDisabled] = useState(false)
     function onMouseDown(evt: React.MouseEvent) {
         setDisabled(true)
-        props.circuit.current.beginAdd({ type: '.s2p' }, () => setDisabled(false))
+        props.circuit.current.beginAdd({ type: props.type }, () => setDisabled(false))
     }
     return <Button style={{ margin: 10 }} disabled={ disabled }
         onMouseDown={ onMouseDown }>{ props.children }</Button>
@@ -47,7 +48,8 @@ export default function Schematic(props: {
             <Layout style={{ height: '100%' }}>
                 <Layout.Sider className="sider" width={ siderWidth }>
                     <div className="content">
-                        <BlockDevice circuit={ circuit }>s2p</BlockDevice>
+                        <BlockDevice type=".s2p" circuit={ circuit }>s2p</BlockDevice>
+                        <BlockDevice type="gnd" circuit={ circuit }>gnd</BlockDevice>
                     </div>
                     <div className="y-splitter" onMouseDown={ onMouseDownOnYSplitter }></div>
                 </Layout.Sider>
