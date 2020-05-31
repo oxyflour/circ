@@ -50,6 +50,11 @@ export default {
     },
     plot: {
         async get(id: string) {
+            const x = Array(50).fill(0).map((_, i) => i),
+                s = 0.02 + 0.2 * Math.random(),
+                t = Math.random() * 5,
+                y = x.map((_, i) => Math.sin(i * s + t))
+            return { x, y }
         },
     },
     async *start() {

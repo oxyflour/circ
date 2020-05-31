@@ -8,6 +8,7 @@ import Menu from 'antd/es/menu'
 import Spin from 'antd/es/spin'
 import Layout from 'antd/es/layout'
 import message from 'antd/es/message'
+import { Row, Col } from 'antd/es/grid'
 import { EventDataNode } from 'rc-tree/lib/interface'
 
 import 'antd/dist/antd.css'
@@ -19,6 +20,7 @@ import { DataNode } from './api'
 import { debounce } from './utils/common'
 
 import Schematic from './component/schematic'
+import Plot from './component/plot'
 
 const treeMenu = <Menu>
     <Menu.Item>Add</Menu.Item>
@@ -101,8 +103,22 @@ function Main() {
         </Layout.Sider>
         <Layout.Content className="main">
             {
-                selectedKeys.length === 1 && selectedKeys[0].toString().endsWith('.net') &&
-                <Schematic file={ selectedKeys[0].toString() } />
+                selectedKeys.length === 1 && selectedKeys[0].toString().endsWith('.net') ?
+                    <Schematic file={ selectedKeys[0].toString() } /> :
+                selectedKeys.every(item => item.toString().endsWith('.plot')) ?
+                    <Plot files={ selectedKeys.map(item => item.toString()) } /> :
+                    <Row>
+                        <Col>
+                        {
+                            selectedKeys.length ? <p>
+                                cannot show items { selectedKeys.map(item => item.toString()).join(', ') }
+                            </p> :
+                            <p>
+                                select an item to display
+                            </p>
+                        }
+                        </Col>
+                    </Row>
             }
         </Layout.Content>
     </Layout>

@@ -29,6 +29,10 @@ export function lerp(a: number, b: number, f: number) {
     return a * (1 - f) + b * f
 }
 
+export function interp1(x0: number, y0: number, x1: number, y1: number, x: number) {
+    return lerp(y0, y1, (x - x0) / (x1 - x0))
+}
+
 export function range(count: number): number[]
 export function range(start: number, end = NaN, step = 1) {
     const [a, b] = end === end ? [start, end] : [0, start],
