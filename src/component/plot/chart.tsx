@@ -3,6 +3,12 @@ import { lerp, interp1 } from '../../utils/common'
 import { withMouseDown } from '../../utils/dom'
 import { Vec2 } from '../../utils/vec2'
 
+export interface Mark {
+    x: number
+    y: number
+    a: number
+}
+
 export interface PlotData {
     x: number[]
     y: number[]
@@ -11,6 +17,7 @@ export interface PlotData {
     j?: number
     xtitle?: string
     ytitle?: string
+    marks?: Mark[]
 }
 
 export interface PlotRange {
@@ -24,6 +31,7 @@ export interface PlotProps {
     plots: PlotData[]
     range: PlotRange
     onRangeChange: (range: PlotRange) => void
+    onPlotsChange: (idx: number, plot: PlotData) => void
 }
 
 function binSearch(arr: number[], val: number) {
@@ -39,6 +47,17 @@ function binSearch(arr: number[], val: number) {
         }
     }
     return i - 1
+}
+
+function interp(xs: number[], ys: number[], x: number) {
+    const i = binSearch(xs, x)
+    if (i < 0) {
+        return xs[0]
+    } else if (i < xs.length - 1) {
+        return interp1(xs[i], ys[i], xs[i + 1], ys[i + 1], x)
+    } else {
+        return xs[xs.length - 1]
+    }
 }
 
 function getTicks(min: number, max: number, y0: number, y1: number) {
@@ -155,15 +174,24 @@ export default function Chart(props: PlotProps) {
         }
     }, [svgRef.current])
 
-    const padding = Math.min(50, size.width * 0.1)
-    function posX(x: number) {
-        return lerp(padding, size.width - padding, (x - range.xmin) / (range.xmax - range.xmin))
+    const padding = Math.min(50, size.width * 0.1),
+        region = { xmin: padding, xmax: size.width - padding, ymin: padding, ymax: size.height - padding }
+    function regionX(rangeX: number) {
+        return interp1(range.xmin, region.xmin, range.xmax, region.xmax, rangeX)
     }
-    function posY(y: number) {
-        return lerp(size.height - padding, padding, (y - range.ymin) / (range.ymax - range.ymin))
+    function regionY(rangeY: number) {
+        // y axis is flipped
+        return interp1(range.ymin, region.ymax, range.ymax, region.ymin, rangeY)
     }
     function pathData(x: number[], y: number[]) {
-        return x.map((x, i) => (i === 0 ? 'M' : 'L') + posX(x) + ' ' + posY(y[i])).join(' ')
+        return x.map((x, i) => (i === 0 ? 'M' : 'L') + regionX(x) + ' ' + regionY(y[i])).join(' ')
+    }
+    function rangeX(regionX: number) {
+        return interp1(region.xmin, range.xmin, region.xmax, range.xmax, regionX)
+    }
+    function rangeY(regionY: number) {
+        // y axis is flipped
+        return interp1(region.ymin, range.ymax, region.ymax, range.ymin, regionY)
     }
 
     function posFromEvent(evt: { clientX: number, clientY: number }) {
@@ -192,10 +220,8 @@ export default function Chart(props: PlotProps) {
                 const selectBox = getBound(evt)
                 if (selectBox.right - selectBox.left > 2 && selectBox.bottom - selectBox.top > 2 && svgBound) {
                     const clip = {
-                        xmin: interp1(region.xmin, range.xmin, region.xmax, range.xmax, selectBox.left),
-                        xmax: interp1(region.xmin, range.xmin, region.xmax, range.xmax, selectBox.right),
-                        ymin: interp1(region.ymin, range.ymax, region.ymax, range.ymin, selectBox.bottom),
-                        ymax: interp1(region.ymin, range.ymax, region.ymax, range.ymin, selectBox.top)
+                        xmin: rangeX(selectBox.left), xmax: rangeX(selectBox.right),
+                        ymin: rangeY(selectBox.bottom), ymax: rangeY(selectBox.top)
                     }
                     props.onRangeChange(clip)
                 }
@@ -228,22 +254,73 @@ export default function Chart(props: PlotProps) {
             }
         props.onRangeChange(clip)
     }
+    function onDoubleClickOnPlot(evt: React.MouseEvent, idx: number) {
+        const { marks = [] } = plots[idx],
+            base = posFromEvent(evt),
+            x = rangeX(base.x)
+        if (!marks.find(mark => Math.abs(x - mark.x) < 1e-9)) {
+            props.onPlotsChange(idx, { ...plots[idx], marks: marks.concat({ x, y: 0, a: Math.PI * 0.25 }) })
+        }
+    }
+    function onMouseDownOnMark(evt: React.MouseEvent, idx: number, mark: number) {
+        const plot = plots[idx],
+            oldMarks = plot.marks || [],
+            { x, y, a } = oldMarks[mark],
+            pivot = Vec2.from(regionX(x), regionY(y)),
+            base = pivot.sub(posFromEvent(evt))
+        withMouseDown(evt => {
+            const current = posFromEvent(evt).add(base),
+                x = rangeX(current.x),
+                marks = oldMarks.map((item, idx) => idx === mark ? { x, a, y: 0 } : item)
+            props.onPlotsChange(idx, { ...plot, marks })
+        })
+    }
+    function onMouseDownOnMarkTip(evt: React.MouseEvent, idx: number, mark: number) {
+        const plot = plots[idx],
+            oldMarks = plot.marks || [],
+            { x, y, a } = oldMarks[mark],
+            pivot = Vec2.from(regionX(x), regionY(y)),
+            base = posFromEvent(evt).sub(pivot)
+        withMouseDown(evt => {
+            // TODO: fix angles
+            const current = posFromEvent(evt).sub(pivot),
+                angle = Math.acos(base.dot(current) / base.len() / current.len()),
+                marks = oldMarks.map((item, idx) => idx === mark ? { x, y: 0, a: a + angle } : item)
+            props.onPlotsChange(idx, { ...plot, marks })
+        })
+    }
 
-    const plotSlice = plots.map(({ x, y, i, j, c }) =>
-            ({ x: x.slice(Math.max(i || 0, 0), j), y: y.slice(Math.max(i || 0, 0), j), c })),
-        region = { xmin: padding, xmax: size.width - padding, ymin: padding, ymax: screen.height - padding }
+    const plotSlice = plots.map(({ x: nx, y: ny, i, j, c, marks: nm }) => {
+        const x = nx.slice(Math.max(i || 0, 0), j),
+            y = ny.slice(Math.max(i || 0, 0), j),
+            marks = (nm || []).map(({ x, a }) => ({ x, a, y: interp(nx, ny, x) }))
+        return { x, y, c, marks }
+    })
     return <svg ref={ svgRef } style={{ width: '100%', height: '100%' }} onWheel={ onMouseWheelOnBackground }>
         <rect className="no-select" x={ 0 } y={ 0 } width={ size.width } height={ size.height }
             fill="#eee" onMouseDown={ OnMouseDownOnBackground } />
         {
-            plotSlice.map(({ x, y, c }, idx) => <g key={ idx }>
+            plotSlice.map(({ x, y, marks, c = 'gray' }, idx) => <g key={ idx }>
                 {
                     x.length < 30 && x.map((x, i) =>
-                        <circle key={ i } cx={ posX(x) } cy={ posY(y[i]) } r={ 5 } fill={ c || 'gray' }>
+                        <circle key={ i } cx={ regionX(x) } cy={ regionY(y[i]) } r={ 5 } fill={ c }>
                             <title>{ x + ', ' + y[i] }</title>
                         </circle>)
                 }
-                <path d={ pathData(x, y) } fill="none" stroke={ c || 'gray' } />
+                <path d={ pathData(x, y) } fill="none" stroke={ c } strokeWidth={ 2 }
+                    onDoubleClick={ evt => onDoubleClickOnPlot(evt, idx) } />
+                {
+                    marks && marks.map(({ x, y, a }, i) => <g key={ i }
+                        transform={ `translate(${regionX(x)}, ${regionY(y)}) rotate(${a / Math.PI * 180})` }>
+                        <circle key={ 'm' + i } cx={ 0 } cy={ 0 } r={ 4 }
+                            fill="transparent" stroke={ c }
+                            onMouseDown={ evt => onMouseDownOnMark(evt, idx, i) }>
+                            <title>{ x + ', ' + y }</title>
+                        </circle>
+                        <polygon points="0 5 -10 30 10 30" fill={ c }
+                            onMouseDown={ evt => onMouseDownOnMarkTip(evt, idx, i) } />
+                    </g>)
+                }
             </g>)
         }
         <YAxis x={ padding } y={ size.height - padding }

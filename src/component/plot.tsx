@@ -23,6 +23,8 @@ export default function Plot(props: {
         return () => document.body.removeEventListener('keyup', onKeyUp)
     }, [])
     return <>
-        <Chart plots={ plots } range={ range } onRangeChange={ range => setRange(range) } />
+        <Chart plots={ plots } range={ range }
+            onRangeChange={ range => setRange(range) }
+            onPlotsChange={ (idx, plot) => setPlots(plots.map((item, i) => i === idx ? plot : item)) } />
     </>
 }
