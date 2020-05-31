@@ -31,10 +31,10 @@ export default {
             return await listdir(path.join(root, id))
         },
     },
-    schematic: {
+    netlist: {
         async get(id: string) {
             const blocks = [] as BlockData[], links = [] as LinkData[]
-            if (id.endsWith('.schematic')) {
+            if (id.endsWith('.net')) {
                 const block = new BlockData<{ name: string }>()
                 block.type = '.s5p'
                 block.attrs.name = 'nil.s5p'

@@ -30,7 +30,7 @@ export default function Schematic(props: {
         { file } = props,
         [siderWidth, setSiderWidth] = useState(parseInt(localStorage.getItem('saved-sider-width') || '250'))
     useAsyncEffect(async () => {
-        const { blocks, links } = await rpc.schematic.get(file)
+        const { blocks, links } = await rpc.netlist.get(file)
         circuit.current.load({ blocks, links })
     }, [file])
     useEffect(() => {

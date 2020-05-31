@@ -101,7 +101,7 @@ function Main() {
         </Layout.Sider>
         <Layout.Content className="main">
             {
-                selectedKeys.length === 1 && selectedKeys[0].toString().endsWith('.schematic') &&
+                selectedKeys.length === 1 && selectedKeys[0].toString().endsWith('.net') &&
                 <Schematic file={ selectedKeys[0].toString() } />
             }
         </Layout.Content>

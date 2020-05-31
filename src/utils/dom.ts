@@ -38,3 +38,12 @@ export function inside({ x, y }: Point, { left, right, top, bottom }: Rect) {
 export function intersect(rt1: Rect, rt2: Rect) {
     return rt1.right >= rt2.left && rt2.right >= rt1.left && rt1.bottom >= rt2.top && rt2.bottom >= rt1.top
 }
+
+export function setSvgRect(rect: SVGRect, bound: Rect) {
+    Object.assign(rect, bound)
+    rect.x = rect.width
+    rect.y = rect.height
+    rect.width = bound.right - bound.left
+    rect.height = bound.bottom - bound.top
+    return rect
+}

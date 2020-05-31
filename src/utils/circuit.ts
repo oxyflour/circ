@@ -189,15 +189,15 @@ export class BlockData<P = any> extends Base {
             const width = 50,
                 height = 30,
                 pins = [
-                    { pos: Vec2.from(-35, 0), end: Vec2.from(-25, 0) },
-                    { pos: Vec2.from( 35, 0), end: Vec2.from( 25, 0) },
+                    { pos: Vec2.from(-35, 0).rot(rot), end: Vec2.from(-25, 0).rot(rot) },
+                    { pos: Vec2.from( 35, 0).rot(rot), end: Vec2.from( 25, 0).rot(rot) },
                 ],
                 labels = [] as { pos: Vec2, val: string }[]
             return { width, height, pins, labels }
         } else if (type === 'gnd') {
             const width = 50,
                 height = 50,
-                pins = [{ pos: Vec2.from(0, -15), end: Vec2.from(0, 0) }],
+                pins = [{ pos: Vec2.from(0, 0).rot(rot), end: Vec2.from(0, 15) }],
                 labels = [] as { pos: Vec2, val: string }[]
             return { width, height, pins, labels }
         } else if (type === 'joint') {

@@ -4,7 +4,7 @@ import Modal from 'antd/es/modal'
 
 import { range } from '../../utils/common'
 import { Vec2 } from '../../utils/vec2'
-import { withMouseDown, inside, intersect } from '../../utils/dom'
+import { withMouseDown, inside, intersect, setSvgRect } from '../../utils/dom'
 import { LinkData, BlockData, cleanupCircuit } from '../../utils/circuit'
 
 export interface CircuitHandle {
@@ -67,7 +67,7 @@ function Block(props: {
     selected: boolean
     onMouseDownOnBlock: (evt: React.MouseEvent, block: BlockData) => void
 }) {
-    const { selected, data, data: { pos, rot, width, height, pins, labels, type, attrs } } = props,
+    const { selected, data, data: { id, pos, rot, width, height, pins, labels, type, attrs } } = props,
         color = selected ? 'blue' : 'gray'
     return <g transform={ `translate(${pos.x}, ${pos.y})` }>
         { pins.map(({ pos, end }, pin) => <line key={ 'b' + pin }
@@ -79,35 +79,39 @@ function Block(props: {
         <g transform={ `rotate(${rot / Math.PI * 180})` }>
             {
                 type === 'gnd' ? <>
-                    <line x1={ -25 } y1={  0 } x2={ 25 } y2={  0 } stroke={ color }></line>
-                    <line x1={ -20 } y1={  5 } x2={ 20 } y2={  5 } stroke={ color }></line>
-                    <line x1={ -15 } y1={ 10 } x2={ 15 } y2={ 10 } stroke={ color }></line>
-                    <line x1={ -10 } y1={ 15 } x2={ 10 } y2={ 15 } stroke={ color }></line>
-                    <rect x={ -width/2 } y={ -height/2 } width={ width } height={ height }
+                    <line x1={ -20 } y1={ 15 } x2={ 20 } y2={ 15 } stroke={ color }></line>
+                    <line x1={ -15 } y1={ 20 } x2={ 15 } y2={ 20 } stroke={ color }></line>
+                    <line x1={ -10 } y1={ 25 } x2={ 10 } y2={ 25 } stroke={ color }></line>
+                    <line x1={ - 5 } y1={ 30 } x2={  5 } y2={ 30 } stroke={ color }></line>
+                    <rect data-block-id={ id } className="block-body"
+                        x={ -width/2 } y={ -height/2 } width={ width } height={ height }
                         onMouseDown={ evt => props.onMouseDownOnBlock(evt, props.data) }
                         fill="transparent" />
                 </> :
                 type === 'lc' ? <>
-                    <rect x={ -width/2 } y={ -height/2 } width={ width } height={ height }
+                    <rect data-block-id={ id } className="block-body"
+                        x={ -width/2 } y={ -height/2 } width={ width } height={ height }
                         onMouseDown={ evt => props.onMouseDownOnBlock(evt, props.data) }
                         stroke={ color } fill="transparent" />
                 </> :
                 type === 'joint' ?
-                    <rect x={ -width/2 } y={ -height/2 } width={ width } height={ height }
+                    <rect data-block-id={ id } className="block-body"
+                        x={ -width/2 } y={ -height/2 } width={ width } height={ height }
                         onMouseDown={ evt => props.onMouseDownOnBlock(evt, props.data) }
                         fill="transparent" /> :
-                    <rect x={ -width/2 } y={ -height/2 } width={ width } height={ height }
+                    <rect data-block-id={ id } className="block-body"
+                        x={ -width/2 } y={ -height/2 } width={ width } height={ height }
                         onMouseDown={ evt => props.onMouseDownOnBlock(evt, props.data) }
                         stroke={ color } fill="white" strokeWidth={ 2 } />
+            }
+            {
+                Object.keys(attrs).filter(key => !key.startsWith('.')).map((key, idx) => <BlockAttr key={ key }
+                    idx={ idx } block={ data } name={ key } val={ attrs[key] } />)
             }
         </g>
         {
             labels.map(({ pos, val }, idx) => <text key={ idx }
                 x={ pos.x } y={ pos.y } textAnchor="middle" alignmentBaseline="central">{ val }</text>)
-        }
-        {
-            Object.keys(attrs).filter(key => !key.startsWith('.')).map((key, idx) => <BlockAttr key={ key }
-                idx={ idx } block={ data } name={ key } val={ attrs[key] } />)
         }
     </g>
 }
@@ -131,8 +135,16 @@ function BlockPins(props: {
 function Editor(props: {
     block: BlockData
 }) {
-    return <>
-    </>
+    const { attrs } = props.block,
+        keys = Object.keys(attrs)
+    return <table>
+    {
+        keys.length ? keys.map(key => <tr key={ key }>
+        </tr>) : <tr>
+            <td>no attributes to edit</td>
+        </tr>
+    }
+    </table>
 }
 
 const lastClickTick = { at: 0 }
@@ -183,11 +195,21 @@ export default function Circuit(props: {
 
     function onMouseDownOnBlock(evt: React.MouseEvent, block: BlockData) {
         const start = posFromEvent(evt),
-            base = new Vec2(block.pos)
+            moving = { } as { [id: string]: { block: BlockData, base: Vec2 } }
+        if (selected[block.id]) {
+            for (const id in selected) {
+                const block = blockMap[id].copy(), base = block.pos
+                moving[id] = { block, base }
+            }
+        } else {
+            moving[block.id] = { block: block.copy(), base: block.pos }
+        }
         withMouseDown(evt => {
-            const current = posFromEvent(evt),
-                moving = block.copy({ pos: base.add(current).sub(start) })
-            setBlocks(blocks.map(item => item.id === moving.id ? moving : item))
+            const current = posFromEvent(evt)
+            for (const { base, block } of Object.values(moving)) {
+                block.pos = base.add(current).sub(start)
+            }
+            setBlocks(blocks.map(item => moving[item.id] ? moving[item.id].block : item))
         }, evt => {
             if (posFromEvent(evt).sub(start).len() < 1) {
                 const prev = evt.ctrlKey ? selected : { }
@@ -247,10 +269,8 @@ export default function Circuit(props: {
                 { at, link, idx } = getHoverLink(pos, created.id)
             if (link) {
                 const [left, right] = link.split(at, idx),
-                    joint = new BlockData()
-                joint.type = 'joint'
-                joint.pos = Vec2.from(left.to.x, left.to.y)
-                const ret = { block: joint.id, pin: 0 }
+                    joint = new BlockData().copy({ type: 'joint', pos: Vec2.from(left.to) }),
+                    ret = { block: joint.id, pin: 0 }
                 Object.assign(left.to, ret)
                 Object.assign(right.from, ret)
                 Object.assign(created[atKey], ret)
@@ -263,28 +283,27 @@ export default function Circuit(props: {
             }
         })
     }
+    function getBound(evt: MouseEvent, start: Vec2) {
+        const end = posFromEvent(evt),
+            [left, right] = [Math.min(start.x, end.x), Math.max(start.x, end.x)],
+            [top, bottom] = [Math.min(start.y, end.y), Math.max(start.y, end.y)]
+        return { left, right, top, bottom }
+    }
     function onMouseDownOnBackground(evt: React.MouseEvent) {
         if (evt.button === 0) {
-            function getBound(evt: MouseEvent) {
-                const end = posFromEvent(evt),
-                    [left, right] = [Math.min(start.x, end.x), Math.max(start.x, end.x)],
-                    [top, bottom] = [Math.min(start.y, end.y), Math.max(start.y, end.y)]
-                return { left, right, top, bottom }
-            }
             const start = posFromEvent(evt)
             withMouseDown(evt => {
-                setSelectBox(getBound(evt))
+                setSelectBox(getBound(evt, start))
             }, evt => {
                 if (posFromEvent(evt).sub(start).len() < 1) {
                     setSelected({ })
-                } else {
-                    const selectBox = getBound(evt),
+                } else if (svgRef.current) {
+                    const selectBox = getBound(evt, start),
+                        svgRect = setSvgRect(svgRef.current.createSVGRect(), selectBox),
                         selected = { } as { [id: string]: boolean }
-                    for (const { width, height, pos, id } of blocks) {
-                        // TODO: take care of rotated blocks
-                        const [hw, hh] = [width / 2, height / 2],
-                            bound = { left: pos.x - hw, right: pos.x + hw, top: pos.y - hh, bottom: pos.y + hh }
-                        selected[id] = intersect(bound, selectBox)
+                    for (const body of svgRef.current.querySelectorAll('.block-body')) {
+                        const id = body.getAttribute('data-block-id') || ''
+                        selected[id] = svgRef.current.checkIntersection(body as SVGElement, svgRect)
                     }
                     for (const { id, from, to } of links) {
                         selected[id] = inside(from, selectBox) || inside(to, selectBox)
