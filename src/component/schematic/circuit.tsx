@@ -384,9 +384,9 @@ export default function Circuit(props: {
     <svg ref={ svgRef } width="100%" height="100%" tabIndex={ -1 }
             onKeyUp={ onKeyUp }
             onWheel={ onMouseWheelOnBackground }>
+        <rect className="circuit-bg" width={ width } height={ height } fill="white"
+            onMouseDown={ onMouseDownOnBackground } />
         <g transform={ `translate(${offset.x} ${offset.y}) scale(${scale})` }>
-            <rect className="circuit-bg" width={ width } height={ height } fill="white"
-                onMouseDown={ onMouseDownOnBackground } />
             { blocks.map(block => <Block key={ block.id } data={ block }
                 selected={ selected[block.id] }
                 onMouseDownOnBlock={ onMouseDownOnBlock } />) }

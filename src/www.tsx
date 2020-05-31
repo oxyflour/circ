@@ -105,7 +105,7 @@ function Main() {
             {
                 selectedKeys.length === 1 && selectedKeys[0].toString().endsWith('.net') ?
                     <Schematic file={ selectedKeys[0].toString() } /> :
-                selectedKeys.every(item => item.toString().endsWith('.plot')) ?
+                selectedKeys.length > 0 && selectedKeys.every(item => item.toString().endsWith('.plot')) ?
                     <Plot files={ selectedKeys.map(item => item.toString()) } /> :
                     <Row>
                         <Col>
