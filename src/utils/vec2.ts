@@ -46,6 +46,9 @@ export class Vec2 {
     lerp(b: IVec2, f: number) {
         return Vec2.from(b).mul(f).add(this.mul(1 - f))
     }
+    angle() {
+        return Math.atan2(this.y, this.x)
+    }
     set(x: number, y: number) {
         this.x = x
         this.y = y

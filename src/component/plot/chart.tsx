@@ -265,11 +265,11 @@ export default function Chart(props: PlotProps) {
     function onMouseDownOnMark(evt: React.MouseEvent, idx: number, mark: number) {
         const plot = plots[idx],
             oldMarks = plot.marks || [],
-            { x, y, a } = oldMarks[mark],
-            pivot = Vec2.from(regionX(x), regionY(y)),
-            base = pivot.sub(posFromEvent(evt))
+            { x, a } = oldMarks[mark],
+            pivot = Vec2.from(regionX(x), 0),
+            start = posFromEvent(evt)
         withMouseDown(evt => {
-            const current = posFromEvent(evt).add(base),
+            const current = posFromEvent(evt).add(pivot).sub(start),
                 x = rangeX(current.x),
                 marks = oldMarks.map((item, idx) => idx === mark ? { x, a, y: 0 } : item)
             props.onPlotsChange(idx, { ...plot, marks })
@@ -277,37 +277,38 @@ export default function Chart(props: PlotProps) {
     }
     function onMouseDownOnMarkTip(evt: React.MouseEvent, idx: number, mark: number) {
         const plot = plots[idx],
-            oldMarks = plot.marks || [],
-            { x, y, a } = oldMarks[mark],
+            ms = plot.marks || [],
+            { x, a } = ms[mark],
+            y = interp(plot.x, plot.y, x),
             pivot = Vec2.from(regionX(x), regionY(y)),
-            base = posFromEvent(evt).sub(pivot)
+            a0 = posFromEvent(evt).sub(pivot).angle()
         withMouseDown(evt => {
-            // TODO: fix angles
-            const current = posFromEvent(evt).sub(pivot),
-                angle = Math.acos(base.dot(current) / base.len() / current.len()),
-                marks = oldMarks.map((item, idx) => idx === mark ? { x, y: 0, a: a + angle } : item)
+            const a1 = posFromEvent(evt).sub(pivot).angle(),
+                marks = ms.map((item, idx) => idx === mark ? { x, y: 0, a: a + a1 - a0 } : item)
             props.onPlotsChange(idx, { ...plot, marks })
         })
     }
 
-    const plotSlice = plots.map(({ x: nx, y: ny, i, j, c, marks: nm }) => {
+    const plotSlice = plots.map(({ x: nx, y: ny, i, j, c, marks: ms }) => {
         const x = nx.slice(Math.max(i || 0, 0), j),
             y = ny.slice(Math.max(i || 0, 0), j),
-            marks = (nm || []).map(({ x, a }) => ({ x, a, y: interp(nx, ny, x) }))
-        return { x, y, c, marks }
+            marks = (ms || []).map(({ x, a }) => ({ x, a, y: interp(nx, ny, x) })),
+            path = pathData(x, y)
+        return { x, y, c, marks, path }
     })
     return <svg ref={ svgRef } style={{ width: '100%', height: '100%' }} onWheel={ onMouseWheelOnBackground }>
         <rect className="no-select" x={ 0 } y={ 0 } width={ size.width } height={ size.height }
             fill="#eee" onMouseDown={ OnMouseDownOnBackground } />
         {
-            plotSlice.map(({ x, y, marks, c = 'gray' }, idx) => <g key={ idx }>
+            plotSlice.map(({ x, y, marks, path, c = 'gray' }, idx) => <g key={ idx }>
                 {
                     x.length < 30 && x.map((x, i) =>
                         <circle key={ i } cx={ regionX(x) } cy={ regionY(y[i]) } r={ 5 } fill={ c }>
                             <title>{ x + ', ' + y[i] }</title>
                         </circle>)
                 }
-                <path d={ pathData(x, y) } fill="none" stroke={ c } strokeWidth={ 2 }
+                <path d={ path } fill="none" stroke={ c } strokeWidth={ 2 } />
+                <path d={ path } fill="none" stroke="transparent" strokeWidth={ 5 }
                     onDoubleClick={ evt => onDoubleClickOnPlot(evt, idx) } />
                 {
                     marks && marks.map(({ x, y, a }, i) => <g key={ i }
