@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { lerp, interp1 } from '../../utils/common'
+import { interp1, clamp, binSearch, interp } from '../../utils/common'
 import { withMouseDown } from '../../utils/dom'
 import { Vec2 } from '../../utils/vec2'
 
@@ -15,8 +15,11 @@ export interface PlotData {
     c?: string
     i?: number
     j?: number
+    d?: boolean
+    w?: number
     xtitle?: string
     ytitle?: string
+    name?: string
     marks?: Mark[]
 }
 
@@ -34,39 +37,29 @@ export interface PlotProps {
     onPlotsChange: (idx: number, plot: PlotData) => void
 }
 
-function binSearch(arr: number[], val: number) {
-    let i = 0, j = arr.length - 1
-    while (i <= j) {
-        const n = (i + j) >> 1
-        if (val === arr[n]) {
-            return n
-        } else if (val > arr[n]) {
-            i = n + 1
-        } else {
-            j = n - 1
-        }
-    }
-    return i - 1
-}
-
-function interp(xs: number[], ys: number[], x: number) {
-    const i = binSearch(xs, x)
-    if (i < 0) {
-        return xs[0]
-    } else if (i < xs.length - 1) {
-        return interp1(xs[i], ys[i], xs[i + 1], ys[i + 1], x)
-    } else {
-        return xs[xs.length - 1]
-    }
-}
+// https://matplotlib.org/3.2.1/users/dflt_style_changes.html
+const plotColors = [
+    '#1f77b4',
+    '#ff7f0e',
+    '#2ca02c',
+    '#d62728',
+    '#9467bd',
+    '#8c564b',
+    '#e377c2',
+    '#7f7f7f',
+    '#bcbd22',
+    '#17becf',
+]
 
 function getTicks(min: number, max: number, y0: number, y1: number) {
     const step = logFloor((max - min) / 2),
         [vmin, vmax] = [floorDiv(min, step), ceilDiv(max, step)],
         ticks = [] as { val: number, pos: number }[]
     for (let val = vmin; val <= vmax; val += step) {
-        const pos = interp1(min, y0, max, y1, val)
-        ticks.push({ val, pos })
+        if (min <= val && val <= max) {
+            const pos = interp1(min, y0, max, y1, val)
+            ticks.push({ val, pos })
+        }
     }
     return ticks
 }
@@ -175,7 +168,9 @@ export default function Chart(props: PlotProps) {
     }, [svgRef.current])
 
     const padding = Math.min(50, size.width * 0.1),
-        region = { xmin: padding, xmax: size.width - padding, ymin: padding, ymax: size.height - padding }
+        region = { xmin: padding, xmax: size.width - padding, ymin: padding, ymax: size.height - padding },
+        [legendPos, setLegendPos] = useState({ x: 20, y: 20 }),
+        [markPos, setMarkPos] = useState({ x: 20, y: 20 })
     function regionX(rangeX: number) {
         return interp1(range.xmin, region.xmin, range.xmax, region.xmax, rangeX)
     }
@@ -259,8 +254,9 @@ export default function Chart(props: PlotProps) {
             base = posFromEvent(evt),
             x = rangeX(base.x)
         if (!marks.find(mark => Math.abs(x - mark.x) < 1e-9)) {
-            props.onPlotsChange(idx, { ...plots[idx], marks: marks.concat({ x, y: 0, a: Math.PI * 0.25 }) })
+            props.onPlotsChange(idx, { ...plots[idx], marks: marks.concat({ x, y: 0, a: 0 }) })
         }
+        evt.preventDefault()
     }
     function onMouseDownOnMark(evt: React.MouseEvent, idx: number, mark: number) {
         const plot = plots[idx],
@@ -270,7 +266,7 @@ export default function Chart(props: PlotProps) {
             start = posFromEvent(evt)
         withMouseDown(evt => {
             const current = posFromEvent(evt).add(pivot).sub(start),
-                x = rangeX(current.x),
+                x = clamp(rangeX(current.x), range.xmin, range.xmax),
                 marks = oldMarks.map((item, idx) => idx === mark ? { x, a, y: 0 } : item)
             props.onPlotsChange(idx, { ...plot, marks })
         })
@@ -288,26 +284,44 @@ export default function Chart(props: PlotProps) {
             props.onPlotsChange(idx, { ...plot, marks })
         })
     }
+    function onMouseDownOnLegends(evt: React.MouseEvent) {
+        const base = Vec2.from(legendPos).sub(posFromEvent(evt))
+        withMouseDown(evt => setLegendPos(posFromEvent(evt).add(base)))
+    }
+    function onMouseDownOnMarks(evt: React.MouseEvent) {
+        const base = Vec2.from(markPos).sub(posFromEvent(evt))
+        withMouseDown(evt => setMarkPos(posFromEvent(evt).add(base)))
+    }
 
-    const plotSlice = plots.map(({ x: nx, y: ny, i, j, c, marks: ms }) => {
-        const x = nx.slice(Math.max(i || 0, 0), j),
-            y = ny.slice(Math.max(i || 0, 0), j),
-            marks = (ms || []).map(({ x, a }) => ({ x, a, y: interp(nx, ny, x) })),
-            path = pathData(x, y)
-        return { x, y, c, marks, path }
+    let usedColors = 0
+    const plotMarks = [] as { c: string, name: string }[]
+    const plotSlice = plots.map(({ i, j, w: ww, c: cc, name: n, x: xs, y: ys, marks: ms }, idx) => {
+        const x = xs.slice(Math.max(i || 0, 0), j),
+            y = ys.slice(Math.max(i || 0, 0), j),
+            c = cc || plotColors[usedColors = (usedColors + 1) % plotColors.length],
+            w = ww || 1,
+            marks = (ms || []).map(({ x, a }) => ({ x, a, y: interp(xs, ys, x) })),
+            path = pathData(x, y),
+            name = n || 'plot ' + (idx + 1)
+        for (const [idx, { x, y }] of marks.entries()) {
+            const name = `${idx + 1} (${x.toFixed(4)}, ${y.toFixed(4)})`
+            plotMarks.push({ c, name })
+        }
+        return { x, y, c, w, marks, path, name }
     })
+
     return <svg ref={ svgRef } style={{ width: '100%', height: '100%' }} onWheel={ onMouseWheelOnBackground }>
         <rect className="no-select" x={ 0 } y={ 0 } width={ size.width } height={ size.height }
             fill="#eee" onMouseDown={ OnMouseDownOnBackground } />
         {
-            plotSlice.map(({ x, y, marks, path, c = 'gray' }, idx) => <g key={ idx }>
+            plotSlice.map(({ x, y, marks, path, c, w }, idx) => <g key={ idx }>
                 {
                     x.length < 30 && x.map((x, i) =>
                         <circle key={ i } cx={ regionX(x) } cy={ regionY(y[i]) } r={ 5 } fill={ c }>
                             <title>{ x + ', ' + y[i] }</title>
                         </circle>)
                 }
-                <path d={ path } fill="none" stroke={ c } strokeWidth={ 2 } />
+                <path d={ path } fill="none" stroke={ c } strokeWidth={ w } />
                 <path d={ path } fill="none" stroke="transparent" strokeWidth={ 5 }
                     onDoubleClick={ evt => onDoubleClickOnPlot(evt, idx) } />
                 {
@@ -318,7 +332,9 @@ export default function Chart(props: PlotProps) {
                             onMouseDown={ evt => onMouseDownOnMark(evt, idx, i) }>
                             <title>{ x + ', ' + y }</title>
                         </circle>
-                        <polygon points="0 5 -10 30 10 30" fill={ c }
+                        <text className="no-select" textAnchor="middle" x={ 0 } y={ 30 } fill={ c }>{ i + 1 }</text>
+                        <polyline className="no-select" points="0 5 -12 40 12 40 0 5"
+                            fill="transparent" stroke={ c } strokeWidth={ 2 }
                             onMouseDown={ evt => onMouseDownOnMarkTip(evt, idx, i) } />
                     </g>)
                 }
@@ -328,6 +344,31 @@ export default function Chart(props: PlotProps) {
             length={ size.height - padding * 2 } min={ range.ymin } max={ range.ymax } />
         <XAxis x={ padding } y={ size.height - padding }
             length={ size.width - padding * 2 } min={ range.xmin } max={ range.xmax } />
+        <g className="legend" transform={ `translate(${legendPos.x + padding}, ${legendPos.y + padding})` }>
+            <rect x={ 0 } y={ 0 } width={ 100 } height={ plotSlice.length * 30 }
+                stroke="gray" fill="white" className="no-select"
+                onMouseDown={ onMouseDownOnLegends } />
+            {
+                plotSlice.map(({ name }, idx) => <text key={ idx }
+                    x={ 50 } y={ idx * 30 + 15 } alignmentBaseline="central">{ name }</text>)
+            }
+            {
+                plotSlice.map(({ c, w }, idx) => <line key={ 'l' + idx } stroke={ c } strokeWidth={ w }
+                    x1={ 10 } y1={ idx * 30 + 15 } x2={ 40 } y2={ idx * 30 + 15 } />)
+            }
+        </g>
+        {
+            plotMarks.length > 0 && <g className="marks"
+                transform={ `translate(${markPos.x + region.xmax - padding - 150}, ${markPos.y + padding})` }>
+                <rect x={ 0 } y={ 0 } width={ 150 } height={ plotMarks.length * 30 }
+                    stroke="gray" fill="white" className="no-select"
+                    onMouseDown={ onMouseDownOnMarks } />
+                {
+                    plotMarks.map(({ name, c }, idx) => <text key={ idx } fill={ c }
+                        x={ 10 } y={ idx * 30 + 15 } alignmentBaseline="central">{ name }</text>)
+                }
+            </g>
+        }
         {
             selectBox.left < selectBox.right && selectBox.top < selectBox.bottom &&
             <rect x={ selectBox.left } y={ selectBox.top }

@@ -33,7 +33,6 @@ export function interp1(x0: number, y0: number, x1: number, y1: number, x: numbe
     return lerp(y0, y1, (x - x0) / (x1 - x0))
 }
 
-export function range(count: number): number[]
 export function range(start: number, end = NaN, step = 1) {
     const [a, b] = end === end ? [start, end] : [0, start],
         ret = []
@@ -45,4 +44,34 @@ export function range(start: number, end = NaN, step = 1) {
 
 export function sleep(time: number) {
     return new Promise(resolve => setTimeout(resolve, time))
+}
+
+export function clamp(x: number, min: number, max: number) {
+    return x < min ? min : x > max ? max : x;
+}
+
+export function binSearch(arr: number[], val: number) {
+    let i = 0, j = arr.length - 1
+    while (i <= j) {
+        const n = (i + j) >> 1
+        if (val === arr[n]) {
+            return n
+        } else if (val > arr[n]) {
+            i = n + 1
+        } else {
+            j = n - 1
+        }
+    }
+    return i - 1
+}
+
+export function interp(xs: number[], ys: number[], x: number) {
+    const i = binSearch(xs, x)
+    if (i < 0) {
+        return xs[0]
+    } else if (i < xs.length - 1) {
+        return interp1(xs[i], ys[i], xs[i + 1], ys[i + 1], x)
+    } else {
+        return xs[xs.length - 1]
+    }
 }
