@@ -1,3 +1,5 @@
+import { clamp } from "./common"
+
 export interface IVec2 {
     x: number
     y: number
@@ -22,6 +24,12 @@ export class Vec2 {
     }
     sub(vec: IVec2 | number) {
         return this.map(Vec2.from(vec), (a, b) => a - b)
+    }
+    min(vec: IVec2 | number) {
+        return this.map(Vec2.from(vec), (a, b) => Math.min(a, b))
+    }
+    max(vec: IVec2 | number) {
+        return this.map(Vec2.from(vec), (a, b) => Math.max(a, b))
     }
     dot(vec: IVec2) {
         return this.x * vec.x + this.y * vec.y

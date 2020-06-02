@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { interp1, clamp, binSearch, interp, findMinIndex } from '../../utils/common'
+import { interp1, clamp, binSearch, interp, findMinIndex, uid } from '../../utils/common'
 import { withMouseDown } from '../../utils/dom'
 import { Vec2 } from '../../utils/vec2'
 
@@ -64,45 +64,57 @@ function getTicks(min: number, max: number, y0: number, y1: number) {
     return ticks
 }
 
-export function YAxis({ x, y, length, min, max }: {
+export function YAxis({ x, y, width, height, min, max }: {
     x: number
     y: number
-    length: number
+    width: number
+    height: number
     min: number
     max: number
 }) {
-    const ticks = getTicks(min, max, y, y - length)
+    const ticks = getTicks(min, max, y, y - height)
     return <g>
-        <line x1={ x } y1={ y } x2={ x } y2={ y - length } stroke="gray" />
+        <line x1={ x } y1={ y } x2={ x } y2={ y - height } stroke="gray" />
         {
             ticks.map(({ val, pos }) => <line key={ 'l' + val } stroke="gray"
                 x1={ x - 5 } y1={ pos } x2={ x } y2={ pos } />)
         }
         {
+            ticks.map(({ val, pos }) => <line key={ 'g' + val } stroke="gray" strokeDasharray="2"
+                x1={ x } y1={ pos } x2={ x + width } y2={ pos } />)
+        }
+        {
             ticks.map(({ val, pos }) => <text key={ 't' + val }
                 x={ x - 35 } y={ pos + 5 }>{ val.toFixed(2) }</text>)
         }
+        <line x1={ x + width } y1={ y } x2={ x + width } y2={ y - height } stroke="gray" />
     </g>
 }
 
-export function XAxis({ x, y, length, min, max }: {
+export function XAxis({ x, y, width, height, min, max }: {
     x: number
     y: number
-    length: number
+    width: number
+    height: number
     min: number
     max: number
 }) {
-    const ticks = getTicks(min, max, x, x + length)
+    const ticks = getTicks(min, max, x, x + width)
     return <g>
-        <line x1={ x } y1={ y } x2={ x + length } y2={ y } stroke="gray" />
+        <line x1={ x } y1={ y } x2={ x + width } y2={ y } stroke="gray" />
         {
             ticks.map(({ val, pos }) => <line key={ 'l' + val } stroke="gray"
                 x1={ pos } y1={ y } x2={ pos } y2={ y + 5 } />)
         }
         {
+            ticks.map(({ val, pos }) => <line key={ 'g' + val } stroke="gray" strokeDasharray="2"
+                x1={ pos } y1={ y } x2={ pos } y2={ y - height } />)
+        }
+        {
             ticks.map(({ val, pos }) => <text key={ 't' + val }
                 x={ pos } y={ y + 20 }>{ val.toFixed(2) }</text>)
         }
+        <line x1={ x } y1={ y - height } x2={ x + width } y2={ y - height } stroke="gray" />
     </g>
 }
 
@@ -165,7 +177,7 @@ export default function Chart(props: PlotProps) {
         if (svgRef.current) {
             setSize({ width: svgRef.current.scrollWidth, height: svgRef.current.scrollHeight })
         }
-    }, [svgRef.current])
+    }, [svgRef.current && svgRef.current.scrollWidth, svgRef.current && svgRef.current.scrollHeight])
 
     const padding = Math.min(50, size.width * 0.1),
         region = { xmin: padding, xmax: size.width - padding, ymin: padding, ymax: size.height - padding },
@@ -191,7 +203,7 @@ export default function Chart(props: PlotProps) {
 
     function posFromEvent(evt: { clientX: number, clientY: number }) {
         if (svgBound) {
-            return Vec2.from(evt.clientX, evt.clientY).sub(svgBase)
+            return Vec2.from(evt.clientX - svgBase.x, evt.clientY - svgBase.y)
         } else {
             throw Error('unreferenced svg')
         }
@@ -308,9 +320,15 @@ export default function Chart(props: PlotProps) {
         return { x, y, c, w, n, marks, path }
     })
 
+    const clipPathId = uid()
     return <svg ref={ svgRef } style={{ width: '100%', height: '100%' }} onWheel={ onMouseWheelOnBackground }>
         <rect className="no-select" x={ 0 } y={ 0 } width={ size.width } height={ size.height }
             fill="#eee" onMouseDown={ OnMouseDownOnBackground } />
+        <clipPath id={ clipPathId }>
+            <rect x={ region.xmin } width={ region.xmax - region.xmin }
+                y={ region.ymin } height={ region.ymax - region.ymin } />
+        </clipPath>
+        <g clipPath={ `url(#${clipPathId})` }>
         {
             plotSlice.map(({ x, y, path, c, w }, idx) => <g key={ idx }>
                 {
@@ -342,10 +360,13 @@ export default function Chart(props: PlotProps) {
                 }
             </g>)
         }
+        </g>
         <YAxis x={ padding } y={ size.height - padding }
-            length={ size.height - padding * 2 } min={ range.ymin } max={ range.ymax } />
+            width={ size.width - padding * 2 } height={ size.height - padding * 2 }
+            min={ range.ymin } max={ range.ymax } />
         <XAxis x={ padding } y={ size.height - padding }
-            length={ size.width - padding * 2 } min={ range.xmin } max={ range.xmax } />
+            width={ size.width - padding * 2 } height={ size.height - padding * 2 }
+            min={ range.xmin } max={ range.xmax } />
         <g className="legend" transform={ `translate(${legendPos.x + padding}, ${legendPos.y + padding})` }>
             <rect x={ 0 } y={ 0 } width={ 100 } height={ plotSlice.length * 30 }
                 stroke="gray" fill="white" className="no-select"
