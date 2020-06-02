@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { interp1, clamp, binSearch, interp } from '../../utils/common'
+import { interp1, clamp, binSearch, interp, findMinIndex } from '../../utils/common'
 import { withMouseDown } from '../../utils/dom'
 import { Vec2 } from '../../utils/vec2'
 
@@ -17,9 +17,9 @@ export interface PlotData {
     j?: number
     d?: boolean
     w?: number
+    n?: string
     xtitle?: string
     ytitle?: string
-    name?: string
     marks?: Mark[]
 }
 
@@ -256,31 +256,29 @@ export default function Chart(props: PlotProps) {
         if (!marks.find(mark => Math.abs(x - mark.x) < 1e-9)) {
             props.onPlotsChange(idx, { ...plots[idx], marks: marks.concat({ x, y: 0, a: 0 }) })
         }
-        evt.preventDefault()
     }
     function onMouseDownOnMark(evt: React.MouseEvent, idx: number, mark: number) {
         const plot = plots[idx],
-            oldMarks = plot.marks || [],
-            { x, a } = oldMarks[mark],
-            pivot = Vec2.from(regionX(x), 0),
-            start = posFromEvent(evt)
+            plotMarks = plot.marks || [],
+            { a } = plotMarks[mark]
         withMouseDown(evt => {
-            const current = posFromEvent(evt).add(pivot).sub(start),
-                x = clamp(rangeX(current.x), range.xmin, range.xmax),
-                marks = oldMarks.map((item, idx) => idx === mark ? { x, a, y: 0 } : item)
+            const current = posFromEvent(evt),
+                arr = plot.x.map((x, i) => ({ x: regionX(x), y: regionY(plot.y[i]) })),
+                x = plot.x[findMinIndex(arr.map(pos => current.sub(pos).len()))],
+                marks = plotMarks.map((item, idx) => idx === mark ? { x, a, y: 0 } : item)
             props.onPlotsChange(idx, { ...plot, marks })
         })
     }
     function onMouseDownOnMarkTip(evt: React.MouseEvent, idx: number, mark: number) {
         const plot = plots[idx],
-            ms = plot.marks || [],
-            { x, a } = ms[mark],
+            plotMarks = plot.marks || [],
+            { x, a } = plotMarks[mark],
             y = interp(plot.x, plot.y, x),
             pivot = Vec2.from(regionX(x), regionY(y)),
             a0 = posFromEvent(evt).sub(pivot).angle()
         withMouseDown(evt => {
             const a1 = posFromEvent(evt).sub(pivot).angle(),
-                marks = ms.map((item, idx) => idx === mark ? { x, y: 0, a: a + a1 - a0 } : item)
+                marks = plotMarks.map((item, idx) => idx === mark ? { x, y: 0, a: a + a1 - a0 } : item)
             props.onPlotsChange(idx, { ...plot, marks })
         })
     }
@@ -294,27 +292,27 @@ export default function Chart(props: PlotProps) {
     }
 
     let usedColors = 0
-    const plotMarks = [] as { c: string, name: string }[]
-    const plotSlice = plots.map(({ i, j, w: ww, c: cc, name: n, x: xs, y: ys, marks: ms }, idx) => {
+    const plotMarks = [] as { c: string, n: string }[]
+    const plotSlice = plots.map(({ i, j, w: width, c: color, n: name, x: xs, y: ys, marks: ms }, idx) => {
         const x = xs.slice(Math.max(i || 0, 0), j),
             y = ys.slice(Math.max(i || 0, 0), j),
-            c = cc || plotColors[usedColors = (usedColors + 1) % plotColors.length],
-            w = ww || 1,
+            c = color || plotColors[usedColors = (usedColors + 1) % plotColors.length],
+            w = width || 1,
+            n = name || 'plot ' + (idx + 1),
             marks = (ms || []).map(({ x, a }) => ({ x, a, y: interp(xs, ys, x) })),
-            path = pathData(x, y),
-            name = n || 'plot ' + (idx + 1)
+            path = pathData(x, y)
         for (const [idx, { x, y }] of marks.entries()) {
-            const name = `${idx + 1} (${x.toFixed(4)}, ${y.toFixed(4)})`
-            plotMarks.push({ c, name })
+            const n = `${idx + 1} (${x.toFixed(4)}, ${y.toFixed(4)})`
+            plotMarks.push({ c, n })
         }
-        return { x, y, c, w, marks, path, name }
+        return { x, y, c, w, n, marks, path }
     })
 
     return <svg ref={ svgRef } style={{ width: '100%', height: '100%' }} onWheel={ onMouseWheelOnBackground }>
         <rect className="no-select" x={ 0 } y={ 0 } width={ size.width } height={ size.height }
             fill="#eee" onMouseDown={ OnMouseDownOnBackground } />
         {
-            plotSlice.map(({ x, y, marks, path, c, w }, idx) => <g key={ idx }>
+            plotSlice.map(({ x, y, path, c, w }, idx) => <g key={ idx }>
                 {
                     x.length < 30 && x.map((x, i) =>
                         <circle key={ i } cx={ regionX(x) } cy={ regionY(y[i]) } r={ 5 } fill={ c }>
@@ -324,6 +322,10 @@ export default function Chart(props: PlotProps) {
                 <path d={ path } fill="none" stroke={ c } strokeWidth={ w } />
                 <path d={ path } fill="none" stroke="transparent" strokeWidth={ 5 }
                     onDoubleClick={ evt => onDoubleClickOnPlot(evt, idx) } />
+            </g>)
+        }
+        {
+            plotSlice.map(({ marks, c }, idx) => <g key={ idx }>
                 {
                     marks && marks.map(({ x, y, a }, i) => <g key={ i }
                         transform={ `translate(${regionX(x)}, ${regionY(y)}) rotate(${a / Math.PI * 180})` }>
@@ -349,8 +351,8 @@ export default function Chart(props: PlotProps) {
                 stroke="gray" fill="white" className="no-select"
                 onMouseDown={ onMouseDownOnLegends } />
             {
-                plotSlice.map(({ name }, idx) => <text key={ idx }
-                    x={ 50 } y={ idx * 30 + 15 } alignmentBaseline="central">{ name }</text>)
+                plotSlice.map(({ n }, idx) => <text key={ idx }
+                    x={ 50 } y={ idx * 30 + 15 } alignmentBaseline="central">{ n }</text>)
             }
             {
                 plotSlice.map(({ c, w }, idx) => <line key={ 'l' + idx } stroke={ c } strokeWidth={ w }
@@ -364,8 +366,8 @@ export default function Chart(props: PlotProps) {
                     stroke="gray" fill="white" className="no-select"
                     onMouseDown={ onMouseDownOnMarks } />
                 {
-                    plotMarks.map(({ name, c }, idx) => <text key={ idx } fill={ c }
-                        x={ 10 } y={ idx * 30 + 15 } alignmentBaseline="central">{ name }</text>)
+                    plotMarks.map(({ n, c }, idx) => <text key={ idx } fill={ c }
+                        x={ 10 } y={ idx * 30 + 15 } alignmentBaseline="central">{ n }</text>)
                 }
             </g>
         }

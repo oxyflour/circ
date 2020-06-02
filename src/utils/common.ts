@@ -72,6 +72,17 @@ export function interp(xs: number[], ys: number[], x: number) {
     } else if (i < xs.length - 1) {
         return interp1(xs[i], ys[i], xs[i + 1], ys[i + 1], x)
     } else {
-        return xs[xs.length - 1]
+        return ys[ys.length - 1]
     }
+}
+
+export function findMinIndex(arr: number[]) {
+    let val = Infinity, idx = 0
+    for (const [i, x] of arr.entries()) {
+        if (x < val) {
+            val = x
+            idx = i
+        }
+    }
+    return idx
 }
