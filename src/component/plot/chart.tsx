@@ -342,6 +342,7 @@ export default function Chart(props: PlotProps) {
                     onDoubleClick={ evt => onDoubleClickOnPlot(evt, idx) } />
             </g>)
         }
+        </g>
         {
             plotSlice.map(({ marks, c }, idx) => <g key={ idx }>
                 {
@@ -360,7 +361,6 @@ export default function Chart(props: PlotProps) {
                 }
             </g>)
         }
-        </g>
         <YAxis x={ padding } y={ size.height - padding }
             width={ size.width - padding * 2 } height={ size.height - padding * 2 }
             min={ range.ymin } max={ range.ymax } />
