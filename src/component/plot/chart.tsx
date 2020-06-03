@@ -314,12 +314,8 @@ export default function Chart(props: PlotProps) {
         confirm({
             title: 'Update Mark Position',
             content: <>
-                <div>
-                    <Input id={ id } defaultValue={ x } />
-                </div>
-                <p>
-                    input empty string to clear this mark
-                </p>
+                <div><Input id={ id } defaultValue={ x } placeholder="remove this mark" /></div>
+                <p>empty string would clear this mark</p>
             </>,
             onOk() {
                 const input = document.getElementById(id) as HTMLInputElement,
@@ -342,7 +338,7 @@ export default function Chart(props: PlotProps) {
                 <Form.Item label="name"><Input id={ 'name-' + id } defaultValue={ data.n } /></Form.Item>
                 <Form.Item label="color"><Input id={ 'color-' + id } defaultValue={ data.c } /></Form.Item>
                 <Form.Item label="line width"><Input id={ 'line-' + id } defaultValue={ data.w } /></Form.Item>
-                <Form.Item label="dash"><Input id={ 'dash-' + id } defaultValue={ data.d } /></Form.Item>
+                <Form.Item label="dash"><Input id={ 'dash-' + id } defaultValue={ data.d } placeholder="no dash" /></Form.Item>
             </Form>,
             onOk() {
                 const n = input('name-' + id).value,
@@ -442,7 +438,7 @@ export default function Chart(props: PlotProps) {
                     onMouseDown={ onMouseDownOnMarks } />
                 {
                     plotMarks.map(({ n, c, i, p, x }, idx) => <text className="mark-label" key={ idx } fill={ c }
-                        onClick={ () =>  onClickOnMarkText(p, i, x) }
+                        onClick={ () => onClickOnMarkText(p, i, x) }
                         x={ 10 } y={ idx * 30 + 15 } alignmentBaseline="central">{ n }</text>)
                 }
             </g>
