@@ -1,5 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { interp1, clamp, binSearch, interp, findMinIndex, uid } from '../../utils/common'
+
+import confirm from 'antd/es/modal/confirm'
+import Form from 'antd/es/form'
+import Input from 'antd/es/input'
+
+import { interp1, binSearch, interp, findMinIndex, uid } from '../../utils/common'
 import { withMouseDown } from '../../utils/dom'
 import { Vec2 } from '../../utils/vec2'
 
@@ -304,9 +309,32 @@ export default function Chart(props: PlotProps) {
         const base = Vec2.from(markPos).sub(posFromEvent(evt))
         withMouseDown(evt => setMarkPos(posFromEvent(evt).add(base)))
     }
+    function onClickOnMarkText(idx: number, i: number, x: number) {
+        const id = uid()
+        confirm({
+            title: 'Update Mark Position',
+            content: <>
+                <div>
+                    <Input id={ id } defaultValue={ x } />
+                </div>
+                <p>
+                    input empty string to clear this mark
+                </p>
+            </>,
+            onOk() {
+                const input = document.getElementById(id) as HTMLInputElement,
+                    plot = plots[idx],
+                    plotMarks = plot.marks || [],
+                    marks = input.value ?
+                        plotMarks.map((item, idx) => idx === i ? { ...item, x: parseFloat(input.value) } : item) :
+                        plotMarks.filter((_, idx) => idx !== i)
+                props.onPlotsChange(idx, { ...plot, marks })
+            },
+        })
+    }
 
     let usedColors = 0
-    const plotMarks = [] as { c: string, n: string }[]
+    const plotMarks = [] as { c: string, n: string, p: number, i: number, x: number }[]
     const plotSlice = plots.map(({ i, j, w: width, c: color, n: name, x: xs, y: ys, marks: ms }, idx) => {
         const x = xs.slice(Math.max(i || 0, 0), j),
             y = ys.slice(Math.max(i || 0, 0), j),
@@ -315,9 +343,9 @@ export default function Chart(props: PlotProps) {
             n = name || 'plot ' + (idx + 1),
             marks = (ms || []).map(({ x, a }) => ({ x, a, y: interp(xs, ys, x) })),
             path = pathData(x, y)
-        for (const [idx, { x, y }] of marks.entries()) {
-            const n = `${idx + 1} (${x.toFixed(4)}, ${y.toFixed(4)})`
-            plotMarks.push({ c, n })
+        for (const [i, { x, y }] of marks.entries()) {
+            const n = `${i + 1} (${x.toFixed(4)}, ${y.toFixed(4)})`
+            plotMarks.push({ c, n, i, x, p: idx })
         }
         return { x, y, c, w, n, marks, path }
     })
@@ -340,7 +368,7 @@ export default function Chart(props: PlotProps) {
                         </circle>)
                 }
                 <path d={ path } fill="none" stroke={ c } strokeWidth={ w } />
-                <path d={ path } fill="none" stroke="transparent" strokeWidth={ 5 }
+                <path d={ path } fill="none" stroke="transparent" className="chart-plot" strokeWidth={ 5 }
                     onDoubleClick={ evt => onDoubleClickOnPlot(evt, idx) } />
             </g>)
         }
@@ -350,8 +378,9 @@ export default function Chart(props: PlotProps) {
                 {
                     marks && marks.map(({ x, y, a }, i) => <g key={ i }
                         transform={ `translate(${regionX(x)}, ${regionY(y)}) rotate(${a / Math.PI * 180})` }>
-                        <circle key={ 'm' + i } cx={ 0 } cy={ 0 } r={ 4 }
+                        <circle className="mark-cursor" key={ 'm' + i } cx={ 0 } cy={ 0 } r={ 4 }
                             fill="transparent" stroke={ c }
+                            onClick={ evt => onClickOnMarkText(idx, i, x) }
                             onMouseDown={ evt => onMouseDownOnMark(evt, idx, i) }>
                             <title>{ x + ', ' + y }</title>
                         </circle>
@@ -389,7 +418,8 @@ export default function Chart(props: PlotProps) {
                     stroke="gray" fill="white" className="no-select"
                     onMouseDown={ onMouseDownOnMarks } />
                 {
-                    plotMarks.map(({ n, c }, idx) => <text key={ idx } fill={ c }
+                    plotMarks.map(({ n, c, i, p, x }, idx) => <text className="mark-label" key={ idx } fill={ c }
+                        onClick={ () =>  onClickOnMarkText(p, i, x) }
                         x={ 10 } y={ idx * 30 + 15 } alignmentBaseline="central">{ n }</text>)
                 }
             </g>
