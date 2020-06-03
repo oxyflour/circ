@@ -20,7 +20,7 @@ export interface PlotData {
     c?: string
     i?: number
     j?: number
-    d?: boolean
+    d?: string
     w?: number
     n?: string
     xtitle?: string
@@ -332,22 +332,44 @@ export default function Chart(props: PlotProps) {
             },
         })
     }
+    function onClickOnPlotLegend(idx: number) {
+        const id = uid(),
+            data = plotSlice[idx],
+            input = (id: string) => document.getElementById(id) as HTMLInputElement
+        confirm({
+            title: `Update ${data.n}`,
+            content: <Form labelCol={{ span: 8 }} wrapperCol={{ span: 8 }}>
+                <Form.Item label="name"><Input id={ 'name-' + id } defaultValue={ data.n } /></Form.Item>
+                <Form.Item label="color"><Input id={ 'color-' + id } defaultValue={ data.c } /></Form.Item>
+                <Form.Item label="line width"><Input id={ 'line-' + id } defaultValue={ data.w } /></Form.Item>
+                <Form.Item label="dash"><Input id={ 'dash-' + id } defaultValue={ data.d } /></Form.Item>
+            </Form>,
+            onOk() {
+                const n = input('name-' + id).value,
+                    c = input('color-' + id).value,
+                    w = parseFloat(input('line-' + id).value),
+                    d = input('dash-' + id).value
+                props.onPlotsChange(idx, { ...plots[idx], n, c, w, d })
+            }
+        })
+    }
 
     let usedColors = 0
     const plotMarks = [] as { c: string, n: string, p: number, i: number, x: number }[]
-    const plotSlice = plots.map(({ i, j, w: width, c: color, n: name, x: xs, y: ys, marks: ms }, idx) => {
+    const plotSlice = plots.map(({ i, j, w: width, c: color, n: name, d: dash, x: xs, y: ys, marks: ms }, idx) => {
         const x = xs.slice(Math.max(i || 0, 0), j),
             y = ys.slice(Math.max(i || 0, 0), j),
             c = color || plotColors[usedColors = (usedColors + 1) % plotColors.length],
             w = width || 1,
             n = name || 'plot ' + (idx + 1),
+            d = dash,
             marks = (ms || []).map(({ x, a }) => ({ x, a, y: interp(xs, ys, x) })),
             path = pathData(x, y)
         for (const [i, { x, y }] of marks.entries()) {
             const n = `${i + 1} (${x.toFixed(4)}, ${y.toFixed(4)})`
             plotMarks.push({ c, n, i, x, p: idx })
         }
-        return { x, y, c, w, n, marks, path }
+        return { x, y, c, w, n, d, marks, path }
     })
 
     const clipPathId = uid()
@@ -360,14 +382,14 @@ export default function Chart(props: PlotProps) {
         </clipPath>
         <g clipPath={ `url(#${clipPathId})` }>
         {
-            plotSlice.map(({ x, y, path, c, w }, idx) => <g key={ idx }>
+            plotSlice.map(({ x, y, path, c, w, d }, idx) => <g key={ idx }>
                 {
                     x.length < 30 && x.map((x, i) =>
                         <circle key={ i } cx={ regionX(x) } cy={ regionY(y[i]) } r={ 5 } fill={ c }>
                             <title>{ x + ', ' + y[i] }</title>
                         </circle>)
                 }
-                <path d={ path } fill="none" stroke={ c } strokeWidth={ w } />
+                <path d={ path } fill="none" stroke={ c } strokeWidth={ w } strokeDasharray={ d } />
                 <path d={ path } fill="none" stroke="transparent" className="chart-plot" strokeWidth={ 5 }
                     onDoubleClick={ evt => onDoubleClickOnPlot(evt, idx) } />
             </g>)
@@ -403,7 +425,8 @@ export default function Chart(props: PlotProps) {
                 stroke="gray" fill="white" className="no-select"
                 onMouseDown={ onMouseDownOnLegends } />
             {
-                plotSlice.map(({ n }, idx) => <text key={ idx }
+                plotSlice.map(({ n }, idx) => <text className="plot-legend" key={ idx }
+                    onClick={ () => onClickOnPlotLegend(idx) }
                     x={ 50 } y={ idx * 30 + 15 } alignmentBaseline="central">{ n }</text>)
             }
             {
