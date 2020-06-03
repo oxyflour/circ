@@ -52,10 +52,15 @@ export class Vec2 {
         return this.div(this.len())
     }
     lerp(b: IVec2, f: number) {
-        return Vec2.from(b).mul(f).add(this.mul(1 - f))
+        return Vec2.from(b.x * f + this.x * (1 - f), b.y * f + this.y * (1 - f))
     }
     angle() {
         return Math.atan2(this.y, this.x)
+    }
+    nearestFrom(p0: IVec2, p1: IVec2) {
+        const len = (p0.x - p1.x) ** 2 + (p0.y - p1.y) ** 2,
+            fac = ((this.x - p1.x) * (p0.x - p1.x) + (this.y - p1.y) * (p0.y - p1.y)) / len
+        return fac < 0 ? p1 : fac > 1 ? p0 : Vec2.from(p1).lerp(p0, fac)
     }
     set(x: number, y: number) {
         this.x = x

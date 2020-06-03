@@ -276,8 +276,10 @@ export default function Chart(props: PlotProps) {
         withMouseDown(evt => {
             const current = posFromEvent(evt),
                 arr = plot.x.map((x, i) => ({ x: regionX(x), y: regionY(plot.y[i]) })),
-                x = plot.x[findMinIndex(arr.map(pos => current.sub(pos).len()))],
-                marks = plotMarks.map((item, idx) => idx === mark ? { x, a, y: 0 } : item)
+                pts = arr.slice(0, -1).map((pt, i) => current.nearestFrom(pt, arr[i + 1])),
+                pos = pts[findMinIndex(pts.map(pos => current.sub(pos).len()))],
+                [x, y] = [rangeX(pos.x), rangeY(pos.y)],
+                marks = plotMarks.map((item, idx) => idx === mark ? { x, y, a } : item)
             props.onPlotsChange(idx, { ...plot, marks })
         })
     }
