@@ -40,7 +40,9 @@ export default function Schematic(props: {
                 <Layout.Sider className="sider" width={ siderWidth }>
                     <div className="content">
                         <Button disabled={ addingBlock } onMouseDown={ () => onAddBlock('.s2p') }>s2p</Button>
+                        <span> </span>
                         <Button disabled={ addingBlock } onMouseDown={ () => onAddBlock('gnd') }>gnd</Button>
+                        <span> </span>
                         <Button disabled={ addingBlock } onMouseDown={ () => onAddBlock('lc') }>lc</Button>
                     </div>
                     <div className="y-splitter" onMouseDown={ onMouseDownOnYSplitter }></div>

@@ -72,10 +72,10 @@ function Block(props: {
     return <g transform={ `translate(${pos.x}, ${pos.y})` }>
         { pins.map(({ pos, end }, pin) => <line key={ 'b' + pin }
             x1={ pos.x } y1={ pos.y } x2={ end.x } y2={ end.y }
-            stroke="gray" />) }
+            stroke={ color } />) }
         { pins.map(({ pos }, pin) => <circle key={ 'c' + pin }
             cx={ pos.x } cy={ pos.y } r={ 5 }
-            stroke="gray" fill="white" />) }
+            stroke={ color } fill="white" />) }
         <g transform={ `rotate(${rot / Math.PI * 180})` }>
             {
                 type === 'gnd' ? <>
@@ -198,8 +198,10 @@ export default function Circuit(props: {
             moving = { } as { [id: string]: { block: BlockData, base: Vec2 } }
         if (selected[block.id]) {
             for (const id in selected) {
-                const block = blockMap[id].copy(), base = block.pos
-                moving[id] = { block, base }
+                if (blockMap[id]) {
+                    const block = blockMap[id].copy(), base = block.pos
+                    moving[id] = { block, base }
+                }
             }
         } else {
             moving[block.id] = { block: block.copy(), base: block.pos }
