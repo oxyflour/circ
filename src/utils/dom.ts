@@ -41,9 +41,9 @@ export function intersect(rt1: Rect, rt2: Rect) {
 
 export function setSvgRect(rect: SVGRect, bound: Rect) {
     Object.assign(rect, bound)
-    rect.x = rect.width
-    rect.y = rect.height
     rect.width = bound.right - bound.left
     rect.height = bound.bottom - bound.top
+    rect.x = rect.left
+    rect.y = rect.top
     return rect
 }
