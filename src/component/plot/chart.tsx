@@ -69,13 +69,14 @@ function getTicks(min: number, max: number, y0: number, y1: number) {
     return ticks
 }
 
-export function YAxis({ x, y, width, height, min, max }: {
+export function YAxis({ x, y, width, height, min, max, onClickOnTick }: {
     x: number
     y: number
     width: number
     height: number
     min: number
     max: number
+    onClickOnTick(): void
 }) {
     const ticks = getTicks(min, max, y, y - height)
     return <g>
@@ -89,20 +90,22 @@ export function YAxis({ x, y, width, height, min, max }: {
                 x1={ x } y1={ pos } x2={ x + width } y2={ pos } />)
         }
         {
-            ticks.map(({ val, pos }) => <text key={ 't' + val }
+            ticks.map(({ val, pos }) => <text key={ 't' + val } className="axis-label x"
+                onClick={ onClickOnTick }
                 x={ x - 35 } y={ pos + 5 }>{ val.toFixed(2) }</text>)
         }
         <line x1={ x + width } y1={ y } x2={ x + width } y2={ y - height } stroke="gray" />
     </g>
 }
 
-export function XAxis({ x, y, width, height, min, max }: {
+export function XAxis({ x, y, width, height, min, max, onClickOnTick }: {
     x: number
     y: number
     width: number
     height: number
     min: number
     max: number
+    onClickOnTick(): void
 }) {
     const ticks = getTicks(min, max, x, x + width)
     return <g>
@@ -116,7 +119,8 @@ export function XAxis({ x, y, width, height, min, max }: {
                 x1={ pos } y1={ y } x2={ pos } y2={ y - height } />)
         }
         {
-            ticks.map(({ val, pos }) => <text key={ 't' + val }
+            ticks.map(({ val, pos }) => <text key={ 't' + val } className="axis-label x"
+                onClick={ onClickOnTick }
                 x={ pos } y={ y + 20 }>{ val.toFixed(2) }</text>)
         }
         <line x1={ x } y1={ y - height } x2={ x + width } y2={ y - height } stroke="gray" />
@@ -328,10 +332,10 @@ export default function Chart(props: PlotProps) {
             },
         })
     }
+    const input = (id: string) => document.getElementById(id) as HTMLInputElement
     function onClickOnPlotLegend(idx: number) {
         const id = uid(),
-            data = plotSlice[idx],
-            input = (id: string) => document.getElementById(id) as HTMLInputElement
+            data = plotSlice[idx]
         confirm({
             title: `Update ${data.n}`,
             content: <Form labelCol={{ span: 8 }} wrapperCol={{ span: 8 }}>
@@ -346,6 +350,37 @@ export default function Chart(props: PlotProps) {
                     w = parseFloat(input('line-' + id).value),
                     d = input('dash-' + id).value
                 props.onPlotsChange(idx, { ...plots[idx], n, c, w, d })
+            }
+        })
+    }
+    function onClickOnTick() {
+        const id = uid()
+        confirm({
+            title: `Update Range`,
+            content: <Form labelCol={{ span: 8 }} wrapperCol={{ span: 16 }}>
+                <Form.Item label="X Range">
+                    <Input.Group compact>
+                        <Input style={{ width: '40%' }} id={ 'xmin-' + id } defaultValue={ range.xmin } />
+                        <Input style={{ width: '20%', background: 'white' }} placeholder="~" disabled />
+                        <Input style={{ width: '40%' }} id={ 'xmax-' + id } defaultValue={ range.xmax } />
+                    </Input.Group>
+                </Form.Item>
+                <Form.Item label="Y Range">
+                    <Input.Group compact>
+                        <Input style={{ width: '40%' }} id={ 'ymin-' + id } defaultValue={ range.ymin } />
+                        <Input style={{ width: '20%', background: 'white' }} placeholder="~" disabled />
+                        <Input style={{ width: '40%' }} id={ 'ymax-' + id } defaultValue={ range.ymax } />
+                    </Input.Group>
+                </Form.Item>
+            </Form>,
+            onOk() {
+                const xmin = parseFloat(input('xmin-' + id).value),
+                    xmax = parseFloat(input('xmax-' + id).value),
+                    ymin = parseFloat(input('ymin-' + id).value),
+                    ymax = parseFloat(input('ymax-' + id).value)
+                if (xmin < xmax && ymin < ymax) {
+                    props.onRangeChange({ xmin, xmax, ymin, ymax })
+                }
             }
         })
     }
@@ -412,10 +447,10 @@ export default function Chart(props: PlotProps) {
         }
         <YAxis x={ padding } y={ size.height - padding }
             width={ size.width - padding * 2 } height={ size.height - padding * 2 }
-            min={ range.ymin } max={ range.ymax } />
+            min={ range.ymin } max={ range.ymax } onClickOnTick={ onClickOnTick } />
         <XAxis x={ padding } y={ size.height - padding }
             width={ size.width - padding * 2 } height={ size.height - padding * 2 }
-            min={ range.xmin } max={ range.xmax } />
+            min={ range.xmin } max={ range.xmax } onClickOnTick={ onClickOnTick } />
         <g className="legend" transform={ `translate(${legendPos.x + padding}, ${legendPos.y + padding})` }>
             <rect x={ 0 } y={ 0 } width={ 100 } height={ plotSlice.length * 30 }
                 stroke="gray" fill="white" className="no-select"
