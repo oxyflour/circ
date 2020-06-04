@@ -84,7 +84,7 @@ function Block(props: {
                     <line x1={ -10 } y1={ 25 } x2={ 10 } y2={ 25 } stroke={ color }></line>
                     <line x1={ - 5 } y1={ 30 } x2={  5 } y2={ 30 } stroke={ color }></line>
                     <rect data-block-id={ id } className="block-body"
-                        x={ -width/2 } y={ -height/2 } width={ width } height={ height }
+                        x={ -width/2 } y={ -20 } width={ width } height={ 20 + height/2 }
                         onMouseDown={ evt => props.onMouseDownOnBlock(evt, props.data) }
                         fill="transparent" />
                 </> :

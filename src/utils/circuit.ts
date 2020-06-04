@@ -195,8 +195,8 @@ export class BlockData<P = any> extends Base {
                 labels = [] as { pos: Vec2, val: string }[]
             return { width, height, pins, labels }
         } else if (type === 'gnd') {
-            const width = 50,
-                height = 50,
+            const width = 40,
+                height = 60,
                 pins = [{ pos: Vec2.from(0, 0).rot(rot), end: Vec2.from(0, 15) }],
                 labels = [] as { pos: Vec2, val: string }[]
             return { width, height, pins, labels }
